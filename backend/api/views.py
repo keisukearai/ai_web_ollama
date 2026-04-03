@@ -37,6 +37,7 @@ class StreamChatView(View):
         def generate():
             token_queue = queue.Queue()
             stop_event = threading.Event()
+            response_holder = [None]  # iter_lines() を外部から close() するための参照
 
             def fetch_ollama():
                 full_response = ''
@@ -44,66 +45,76 @@ class StreamChatView(View):
                 peak_cpu = 0.0
                 peak_memory = 0.0
                 token_count = 0
-                # qwen3 は thinking モードがデフォルト有効のため /no_think を付加
-                prompt = question + ('\n/no_think' if model.startswith('qwen3') else '')
+
+                # /api/chat を使用（qwen3 の think: false が正しく効く）
+                payload = {
+                    'model': model,
+                    'messages': [{'role': 'user', 'content': question}],
+                    'stream': True,
+                }
+                if model.startswith('qwen3'):
+                    payload['think'] = False
+
                 try:
-                    with requests.post(
-                        f"{settings.OLLAMA_URL}/api/generate",
-                        json={'model': model, 'prompt': prompt, 'stream': True},
+                    resp = requests.post(
+                        f"{settings.OLLAMA_URL}/api/chat",
+                        json=payload,
                         stream=True,
                         timeout=120,
-                    ) as resp:
-                        for line in resp.iter_lines():
-                            if stop_event.is_set():
-                                return
-                            if not line:
-                                continue
-                            data = json.loads(line)
-                            token = data.get('response', '')
-                            if token:
-                                full_response += token
-                                token_count += 1
-                                if token_count % 10 == 0:
-                                    cpu = psutil.cpu_percent(interval=None)
-                                    mem = psutil.virtual_memory().percent
-                                    if cpu > peak_cpu:
-                                        peak_cpu = cpu
-                                    if mem > peak_memory:
-                                        peak_memory = mem
-                                token_queue.put(('token', token))
-                            if data.get('done'):
+                    )
+                    response_holder[0] = resp
+
+                    for line in resp.iter_lines():
+                        if stop_event.is_set():
+                            break
+                        if not line:
+                            continue
+                        data = json.loads(line)
+                        token = data.get('message', {}).get('content', '')
+                        if token:
+                            full_response += token
+                            token_count += 1
+                            if token_count % 10 == 0:
                                 cpu = psutil.cpu_percent(interval=None)
                                 mem = psutil.virtual_memory().percent
                                 if cpu > peak_cpu:
                                     peak_cpu = cpu
                                 if mem > peak_memory:
                                     peak_memory = mem
-                                duration_ms = int((time.time() - start) * 1000)
-                                conv = Conversation.objects.create(
-                                    question=question,
-                                    response=full_response,
-                                    model_name=model,
-                                    duration_ms=duration_ms,
-                                    ip_address=ip_address,
-                                    cpu_percent=round(peak_cpu, 1),
-                                    memory_percent=round(peak_memory, 1),
-                                )
-                                token_queue.put(('done', {
-                                    'done': True, 'id': conv.id,
-                                    'created_at': conv.created_at.isoformat(),
-                                    'duration_ms': duration_ms,
-                                    'ip_address': ip_address,
-                                    'cpu_percent': conv.cpu_percent,
-                                    'memory_percent': conv.memory_percent,
-                                }))
-                                return
+                            token_queue.put(('token', token))
+                        if data.get('done'):
+                            cpu = psutil.cpu_percent(interval=None)
+                            mem = psutil.virtual_memory().percent
+                            if cpu > peak_cpu:
+                                peak_cpu = cpu
+                            if mem > peak_memory:
+                                peak_memory = mem
+                            duration_ms = int((time.time() - start) * 1000)
+                            conv = Conversation.objects.create(
+                                question=question,
+                                response=full_response,
+                                model_name=model,
+                                duration_ms=duration_ms,
+                                ip_address=ip_address,
+                                cpu_percent=round(peak_cpu, 1),
+                                memory_percent=round(peak_memory, 1),
+                            )
+                            token_queue.put(('done', {
+                                'done': True, 'id': conv.id,
+                                'created_at': conv.created_at.isoformat(),
+                                'duration_ms': duration_ms,
+                                'ip_address': ip_address,
+                                'cpu_percent': conv.cpu_percent,
+                                'memory_percent': conv.memory_percent,
+                            }))
+                            return
                 except requests.exceptions.Timeout:
                     token_queue.put(('error', 'AIの応答がタイムアウトしました'))
                 except Exception as e:
                     if not stop_event.is_set():
                         token_queue.put(('error', f'Ollama接続エラー: {e}'))
                 finally:
-                    token_queue.put(None)  # 終了シグナル
+                    token_queue.put(None)
 
             thread = threading.Thread(target=fetch_ollama, daemon=True)
             thread.start()
@@ -123,8 +134,13 @@ class StreamChatView(View):
                         yield f"data: {json.dumps({'error': data})}\n\n"
                         break
             except GeneratorExit:
-                # クライアントが切断 → Ollama スレッドを停止
+                # クライアント切断 → stop_event + resp.close() で Ollama を即時停止
                 stop_event.set()
+                if response_holder[0] is not None:
+                    try:
+                        response_holder[0].close()
+                    except Exception:
+                        pass
 
         response = StreamingHttpResponse(generate(), content_type='text/event-stream')
         response['Cache-Control'] = 'no-cache'
