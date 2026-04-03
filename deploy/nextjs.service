@@ -1,0 +1,15 @@
+[Unit]
+Description=AI Web Ollama - Next.js
+After=network.target
+
+[Service]
+User=admin
+WorkingDirectory=/home/admin/ai_web_ollama/frontend
+Environment=NODE_ENV=production
+Environment=NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
