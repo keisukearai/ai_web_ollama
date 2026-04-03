@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Sun, Moon, Menu, X, Send } from 'lucide-react';
-import { sendChatStream, fetchHistory, fetchModels, Conversation } from '@/lib/api';
+import { sendChatStream, fetchModels, Conversation } from '@/lib/api';
 
 type Message = {
   role: 'user' | 'ai';
@@ -42,7 +42,6 @@ export default function Home() {
 
   useEffect(() => {
     fetchModels().then(setModels).catch(() => {});
-    fetchHistory().then(setHistory).catch(() => {});
   }, []);
 
   useEffect(() => {
