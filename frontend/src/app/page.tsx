@@ -27,8 +27,24 @@ export default function Home() {
   const [model, setModel] = useState('gemma3:4b');
   const [models, setModels] = useState<string[]>(['gemma3:4b']);
   const [history, setHistory] = useState<Conversation[]>([]);
+  const [isDark, setIsDark] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('theme');
+    const dark = saved ? saved === 'dark' : true;
+    setIsDark(dark);
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  }, []);
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    const theme = next ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  };
 
   useEffect(() => {
     fetchModels().then(setModels).catch(() => {});
@@ -142,6 +158,9 @@ export default function Home() {
           {models.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
         <span className="model-badge">Ollama</span>
+        <button className="theme-toggle" onClick={toggleTheme} title="テーマ切り替え">
+          {isDark ? '☀️' : '🌙'}
+        </button>
       </header>
 
       <div className="main">
