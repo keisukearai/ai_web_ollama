@@ -175,10 +175,13 @@ export default function Home() {
             )}
             {messages.map((msg, i) => (
               <div key={i} className={`message ${msg.role}`}>
-                <div className="bubble">
-                  {msg.content}
-                  {msg.streaming && <span className="cursor" />}
-                </div>
+                {msg.streaming && msg.content === '' ? (
+                  <div className="bubble thinking">
+                    <span /><span /><span />
+                  </div>
+                ) : (
+                  <div className="bubble">{msg.content}</div>
+                )}
                 {msg.role === 'ai' && !msg.streaming && msg.duration_ms && (
                   <div className="meta">
                     {msg.created_at && formatDate(msg.created_at)} ・ {(msg.duration_ms / 1000).toFixed(1)}秒
