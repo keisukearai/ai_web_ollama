@@ -124,7 +124,35 @@ CORS_ALLOWED_ORIGINS=http://<SERVER_IP>
 python3 -c "import secrets; print(secrets.token_urlsafe(50))"
 ```
 
-### 5. セットアップスクリプトを実行
+### 5. ファイアウォール設定（UFW）
+
+サーバー内のUFWでHTTP/HTTPSポートを開放する。
+
+```bash
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw status
+```
+
+開放後に以下が表示されればOK：
+
+```
+80/tcp                     ALLOW       Anywhere
+443/tcp                    ALLOW       Anywhere
+```
+
+> **ConoHa VPS を使用している場合:**  
+> コントロールパネル → ネットワーク → セキュリティグループ で以下のインバウンドルールを追加する。  
+> UFW とセキュリティグループの**両方**を開放しないと外部から繋がらない。
+>
+> | 通信方向 | プロトコル | ポート | IP/CIDR |
+> |---|---|---|---|
+> | In (IPv4) | TCP | 80 | 0.0.0.0/0 |
+> | In (IPv6) | TCP | 80 | ::/0 |
+> | In (IPv4) | TCP | 443 | 0.0.0.0/0 |
+> | In (IPv6) | TCP | 443 | ::/0 |
+
+### 6. セットアップスクリプトを実行
 
 ```bash
 chmod +x setup-server.sh
@@ -139,7 +167,7 @@ chmod +x setup-server.sh
 5. nginx 設定コピー・再起動
 6. systemd サービス登録・起動
 
-### 6. 動作確認
+### 7. 動作確認
 
 ```bash
 # サービス状態確認
@@ -181,6 +209,34 @@ deactivate
 cd ../frontend && npm ci && npm run build
 # 再起動
 sudo systemctl restart ai-django ai-nextjs
+```
+
+---
+
+## ドメイン設定
+
+DNS で `<YOUR_DOMAIN>` を `<SERVER_IP>` に向けた後、nginx の `server_name` を変更する。
+
+```bash
+# nginx/default.conf の server_name を変更
+server_name <YOUR_DOMAIN>;
+
+# サーバーに反映
+sudo cp ~/ai_web_ollama/nginx/default.conf /etc/nginx/sites-available/ai_web_ollama
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+`.env` のドメインも更新する：
+
+```env
+ALLOWED_HOSTS=<YOUR_DOMAIN>,localhost,127.0.0.1
+CORS_ALLOWED_ORIGINS=http://<YOUR_DOMAIN>
+```
+
+反映：
+
+```bash
+sudo systemctl restart ai-django
 ```
 
 ---
