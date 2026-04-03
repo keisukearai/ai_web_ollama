@@ -14,7 +14,7 @@ type Message = {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString('ja-JP', {
-    month: '2-digit', day: '2-digit',
+    year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit',
   });
 }
@@ -184,8 +184,7 @@ export default function Home() {
                 )}
                 {msg.role === 'ai' && !msg.streaming && msg.duration_ms && (
                   <div className="meta">
-                    {msg.created_at && formatDate(msg.created_at)} ・ {(msg.duration_ms / 1000).toFixed(1)}秒
-                    {msg.ip_address && <> ・ {msg.ip_address}</>}
+                    {msg.created_at && formatDate(msg.created_at)} ・ {(msg.duration_ms / 1000).toFixed(1)}sec
                   </div>
                 )}
               </div>
