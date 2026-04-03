@@ -4,10 +4,10 @@ from .models import Conversation
 
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
-    list_display = ['id', 'question_preview', 'model_name', 'duration_sec', 'ip_address', 'created_at']
+    list_display = ['id', 'question_preview', 'model_name', 'duration_sec', 'cpu_display', 'memory_display', 'ip_address', 'created_at']
     list_filter = ['model_name', 'ip_address', 'created_at']
     search_fields = ['question', 'response']
-    readonly_fields = ['question', 'response', 'model_name', 'duration_ms', 'ip_address', 'created_at']
+    readonly_fields = ['question', 'response', 'model_name', 'duration_ms', 'ip_address', 'cpu_percent', 'memory_percent', 'created_at']
     ordering = ['-created_at']
     list_per_page = 50
 
@@ -20,3 +20,15 @@ class ConversationAdmin(admin.ModelAdmin):
             return '-'
         return f'{obj.duration_ms / 1000:.1f}秒'
     duration_sec.short_description = '応答時間'
+
+    def cpu_display(self, obj):
+        if obj.cpu_percent is None:
+            return '-'
+        return f'{obj.cpu_percent}%'
+    cpu_display.short_description = 'CPU(ピーク)'
+
+    def memory_display(self, obj):
+        if obj.memory_percent is None:
+            return '-'
+        return f'{obj.memory_percent}%'
+    memory_display.short_description = 'MEM(ピーク)'
