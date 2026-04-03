@@ -57,22 +57,31 @@ export async function sendChatStream(
   const decoder = new TextDecoder();
   let buffer = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
 
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      try {
-        const data = JSON.parse(line.slice(6));
-        if (data.error) { clearTimeout(timeoutId); onError(data.error); return; }
-        if (data.token) onToken(data.token);
-        if (data.done) { clearTimeout(timeoutId); onDone(data); }
-      } catch {}
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.error) { clearTimeout(timeoutId); onError(data.error); return; }
+          if (data.token) onToken(data.token);
+          if (data.done) { clearTimeout(timeoutId); onDone(data); }
+        } catch {}
+      }
+    }
+  } catch (e: unknown) {
+    clearTimeout(timeoutId);
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      onError('タイムアウト：応答に時間がかかりすぎました。質問を短くして再送してください。');
+    } else {
+      onError('接続が切断されました');
     }
   }
 }
