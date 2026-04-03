@@ -4,13 +4,15 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Sun, Moon, Menu, X, Send } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { sendChatStream, fetchModels, Conversation } from '@/lib/api';
+import { sendChatStream, fetchModels, fetchStats, Conversation, ServerStats } from '@/lib/api';
 
 type Message = {
   role: 'user' | 'ai';
   content: string;
   duration_ms?: number | null;
   ip_address?: string | null;
+  cpu_percent?: number | null;
+  memory_percent?: number | null;
   created_at?: string;
   streaming?: boolean;
 };
@@ -31,6 +33,7 @@ export default function Home() {
   const [models, setModels] = useState<string[]>(['gemma3:4b']);
   const [history, setHistory] = useState<Conversation[]>([]);
   const [isDark, setIsDark] = useState(true);
+  const [stats, setStats] = useState<ServerStats | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -44,6 +47,12 @@ export default function Home() {
 
   useEffect(() => {
     fetchModels().then(setModels).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetchStats().then(setStats);
+    const id = setInterval(() => fetchStats().then(setStats), 3000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -100,6 +109,8 @@ export default function Home() {
             ...last, streaming: false,
             duration_ms: data.duration_ms,
             ip_address: data.ip_address,
+            cpu_percent: data.cpu_percent,
+            memory_percent: data.memory_percent,
             created_at: data.created_at,
           };
           return msgs;
@@ -107,7 +118,8 @@ export default function Home() {
         setHistory(prev => [{
           id: data.id, question: q, response: accumulated,
           model_name: model, duration_ms: data.duration_ms,
-          ip_address: data.ip_address, created_at: data.created_at,
+          ip_address: data.ip_address, cpu_percent: data.cpu_percent,
+          memory_percent: data.memory_percent, created_at: data.created_at,
         }, ...prev]);
         setLoading(false);
       },
@@ -154,7 +166,14 @@ export default function Home() {
           Ollama
         </span>
 
-        <div className="ml-auto flex items-center gap-2">
+        {stats && (
+          <div className="ml-auto flex items-center gap-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+            <span title="CPU使用率">CPU {stats.cpu_percent.toFixed(0)}%</span>
+            <span title="メモリ使用率">MEM {stats.memory_used_gb}/{stats.memory_total_gb}GB</span>
+          </div>
+        )}
+
+        <div className={`flex items-center gap-2 ${stats ? '' : 'ml-auto'}`}>
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg transition-colors"
@@ -173,6 +192,7 @@ export default function Home() {
           </button>
         </div>
       </header>
+
 
       {/* Main */}
       <div className="flex flex-1 overflow-hidden relative">
@@ -203,8 +223,12 @@ export default function Home() {
                   </div>
                 )}
                 {msg.role === 'ai' && !msg.streaming && msg.duration_ms && (
-                  <div className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
-                    {msg.created_at && formatDate(msg.created_at)} · {(msg.duration_ms / 1000).toFixed(1)}sec
+                  <div className="text-xs px-1 space-x-1" style={{ color: 'var(--text-muted)' }}>
+                    <span>{msg.created_at && formatDate(msg.created_at)}</span>
+                    <span>·</span>
+                    <span>{(msg.duration_ms / 1000).toFixed(1)}sec</span>
+                    {msg.cpu_percent != null && <><span>·</span><span>CPU {msg.cpu_percent}%</span></>}
+                    {msg.memory_percent != null && <><span>·</span><span>MEM {msg.memory_percent}%</span></>}
                   </div>
                 )}
               </div>

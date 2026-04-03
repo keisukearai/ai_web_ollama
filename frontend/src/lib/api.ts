@@ -5,7 +5,16 @@ export type Conversation = {
   model_name: string;
   duration_ms: number | null;
   ip_address: string | null;
+  cpu_percent: number | null;
+  memory_percent: number | null;
   created_at: string;
+};
+
+export type ServerStats = {
+  cpu_percent: number;
+  memory_percent: number;
+  memory_used_gb: number;
+  memory_total_gb: number;
 };
 
 const BASE = '/api';
@@ -14,7 +23,7 @@ export async function sendChatStream(
   question: string,
   model: string,
   onToken: (token: string) => void,
-  onDone: (data: { id: number; created_at: string; duration_ms: number; ip_address: string | null }) => void,
+  onDone: (data: { id: number; created_at: string; duration_ms: number; ip_address: string | null; cpu_percent: number | null; memory_percent: number | null }) => void,
   onError: (msg: string) => void,
 ): Promise<void> {
   let res: Response;
@@ -69,4 +78,14 @@ export async function fetchModels(): Promise<string[]> {
   if (!res.ok) return ['gemma3:4b'];
   const data = await res.json();
   return data.models ?? ['gemma3:4b'];
+}
+
+export async function fetchStats(): Promise<ServerStats | null> {
+  try {
+    const res = await fetch(`${BASE}/stats/`);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
 }
