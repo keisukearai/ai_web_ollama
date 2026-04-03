@@ -1,4 +1,6 @@
 import json
+import queue
+import threading
 import time
 import psutil
 import requests
@@ -33,60 +35,94 @@ class StreamChatView(View):
         ip_address = forwarded_for.split(',')[0].strip() if forwarded_for else request.META.get('REMOTE_ADDR')
 
         def generate():
-            full_response = ''
-            start = time.time()
-            peak_cpu = 0.0
-            peak_memory = 0.0
-            token_count = 0
-            try:
-                with requests.post(
-                    f"{settings.OLLAMA_URL}/api/generate",
-                    json={'model': model, 'prompt': question, 'stream': True},
-                    stream=True,
-                    timeout=120,
-                ) as resp:
-                    for line in resp.iter_lines():
-                        if not line:
-                            continue
-                        data = json.loads(line)
-                        token = data.get('response', '')
-                        if token:
-                            full_response += token
-                            token_count += 1
-                            # 10トークンごとにサンプリング
-                            if token_count % 10 == 0:
+            token_queue = queue.Queue()
+            stop_event = threading.Event()
+
+            def fetch_ollama():
+                full_response = ''
+                start = time.time()
+                peak_cpu = 0.0
+                peak_memory = 0.0
+                token_count = 0
+                try:
+                    with requests.post(
+                        f"{settings.OLLAMA_URL}/api/generate",
+                        json={'model': model, 'prompt': question, 'stream': True},
+                        stream=True,
+                        timeout=120,
+                    ) as resp:
+                        for line in resp.iter_lines():
+                            if stop_event.is_set():
+                                return
+                            if not line:
+                                continue
+                            data = json.loads(line)
+                            token = data.get('response', '')
+                            if token:
+                                full_response += token
+                                token_count += 1
+                                if token_count % 10 == 0:
+                                    cpu = psutil.cpu_percent(interval=None)
+                                    mem = psutil.virtual_memory().percent
+                                    if cpu > peak_cpu:
+                                        peak_cpu = cpu
+                                    if mem > peak_memory:
+                                        peak_memory = mem
+                                token_queue.put(('token', token))
+                            if data.get('done'):
                                 cpu = psutil.cpu_percent(interval=None)
                                 mem = psutil.virtual_memory().percent
                                 if cpu > peak_cpu:
                                     peak_cpu = cpu
                                 if mem > peak_memory:
                                     peak_memory = mem
-                            yield f"data: {json.dumps({'token': token})}\n\n"
-                        if data.get('done'):
-                            # 最終サンプリング
-                            cpu = psutil.cpu_percent(interval=None)
-                            mem = psutil.virtual_memory().percent
-                            if cpu > peak_cpu:
-                                peak_cpu = cpu
-                            if mem > peak_memory:
-                                peak_memory = mem
+                                duration_ms = int((time.time() - start) * 1000)
+                                conv = Conversation.objects.create(
+                                    question=question,
+                                    response=full_response,
+                                    model_name=model,
+                                    duration_ms=duration_ms,
+                                    ip_address=ip_address,
+                                    cpu_percent=round(peak_cpu, 1),
+                                    memory_percent=round(peak_memory, 1),
+                                )
+                                token_queue.put(('done', {
+                                    'done': True, 'id': conv.id,
+                                    'created_at': conv.created_at.isoformat(),
+                                    'duration_ms': duration_ms,
+                                    'ip_address': ip_address,
+                                    'cpu_percent': conv.cpu_percent,
+                                    'memory_percent': conv.memory_percent,
+                                }))
+                                return
+                except requests.exceptions.Timeout:
+                    token_queue.put(('error', 'AIの応答がタイムアウトしました'))
+                except Exception as e:
+                    if not stop_event.is_set():
+                        token_queue.put(('error', f'Ollama接続エラー: {e}'))
+                finally:
+                    token_queue.put(None)  # 終了シグナル
 
-                            duration_ms = int((time.time() - start) * 1000)
-                            conv = Conversation.objects.create(
-                                question=question,
-                                response=full_response,
-                                model_name=model,
-                                duration_ms=duration_ms,
-                                ip_address=ip_address,
-                                cpu_percent=round(peak_cpu, 1),
-                                memory_percent=round(peak_memory, 1),
-                            )
-                            yield f"data: {json.dumps({'done': True, 'id': conv.id, 'created_at': conv.created_at.isoformat(), 'duration_ms': duration_ms, 'ip_address': ip_address, 'cpu_percent': conv.cpu_percent, 'memory_percent': conv.memory_percent})}\n\n"
-                            return
-            except requests.exceptions.Timeout:
-                yield f"data: {json.dumps({'error': 'AIの応答がタイムアウトしました'})}\n\n"
-            except Exception as e:
-                yield f"data: {json.dumps({'error': f'Ollama接続エラー: {e}'})}\n\n"
+            thread = threading.Thread(target=fetch_ollama, daemon=True)
+            thread.start()
+
+            try:
+                while True:
+                    item = token_queue.get(timeout=125)
+                    if item is None:
+                        break
+                    kind, data = item
+                    if kind == 'token':
+                        yield f"data: {json.dumps({'token': data})}\n\n"
+                    elif kind == 'done':
+                        yield f"data: {json.dumps(data)}\n\n"
+                        break
+                    elif kind == 'error':
+                        yield f"data: {json.dumps({'error': data})}\n\n"
+                        break
+            except GeneratorExit:
+                # クライアントが切断 → Ollama スレッドを停止
+                stop_event.set()
 
         response = StreamingHttpResponse(generate(), content_type='text/event-stream')
         response['Cache-Control'] = 'no-cache'
