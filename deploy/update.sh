@@ -21,6 +21,10 @@ cd "$APP_DIR/frontend"
 npm ci --silent
 npm run build
 
+echo "=== staticfiles 権限設定 ==="
+sudo chmod o+x /home/admin
+sudo chmod -R o+rX "$APP_DIR/backend/staticfiles"
+
 echo "=== サービス再起動 ==="
 sudo systemctl restart ai-django ai-nextjs
 
