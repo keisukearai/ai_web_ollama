@@ -24,6 +24,10 @@ class StreamChatView(View):
                 yield f"data: {json.dumps({'error': '質問を入力してください'})}\n\n"
             return StreamingHttpResponse(error_stream(), content_type='text/event-stream')
 
+        # X-Forwarded-For（nginxプロキシ経由）対応
+        forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        ip_address = forwarded_for.split(',')[0].strip() if forwarded_for else request.META.get('REMOTE_ADDR')
+
         def generate():
             full_response = ''
             start = time.time()
@@ -49,8 +53,9 @@ class StreamChatView(View):
                                 response=full_response,
                                 model_name=model,
                                 duration_ms=duration_ms,
+                                ip_address=ip_address,
                             )
-                            yield f"data: {json.dumps({'done': True, 'id': conv.id, 'created_at': conv.created_at.isoformat(), 'duration_ms': duration_ms})}\n\n"
+                            yield f"data: {json.dumps({'done': True, 'id': conv.id, 'created_at': conv.created_at.isoformat(), 'duration_ms': duration_ms, 'ip_address': ip_address})}\n\n"
                             return
             except requests.exceptions.Timeout:
                 yield f"data: {json.dumps({'error': 'AIの応答がタイムアウトしました'})}\n\n"

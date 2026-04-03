@@ -4,6 +4,7 @@ export type Conversation = {
   response: string;
   model_name: string;
   duration_ms: number | null;
+  ip_address: string | null;
   created_at: string;
 };
 
@@ -13,7 +14,7 @@ export async function sendChatStream(
   question: string,
   model: string,
   onToken: (token: string) => void,
-  onDone: (data: { id: number; created_at: string; duration_ms: number }) => void,
+  onDone: (data: { id: number; created_at: string; duration_ms: number; ip_address: string | null }) => void,
   onError: (msg: string) => void,
 ): Promise<void> {
   let res: Response;

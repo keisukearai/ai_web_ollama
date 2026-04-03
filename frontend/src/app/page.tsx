@@ -7,6 +7,7 @@ type Message = {
   role: 'user' | 'ai';
   content: string;
   duration_ms?: number | null;
+  ip_address?: string | null;
   created_at?: string;
   streaming?: boolean;
 };
@@ -86,6 +87,7 @@ export default function Home() {
               ...last,
               streaming: false,
               duration_ms: data.duration_ms,
+              ip_address: data.ip_address,
               created_at: data.created_at,
             };
           }
@@ -97,6 +99,7 @@ export default function Home() {
           response: accumulated,
           model_name: model,
           duration_ms: data.duration_ms,
+          ip_address: data.ip_address,
           created_at: data.created_at,
         }, ...prev]);
         setLoading(false);
@@ -160,6 +163,7 @@ export default function Home() {
                 {msg.role === 'ai' && !msg.streaming && msg.duration_ms && (
                   <div className="meta">
                     {msg.created_at && formatDate(msg.created_at)} ・ {(msg.duration_ms / 1000).toFixed(1)}秒
+                    {msg.ip_address && <> ・ {msg.ip_address}</>}
                   </div>
                 )}
               </div>
@@ -190,7 +194,10 @@ export default function Home() {
             {history.map(conv => (
               <div key={conv.id} className="history-item" onClick={() => loadConversation(conv)}>
                 <div className="q">{conv.question}</div>
-                <div className="date">{formatDate(conv.created_at)}</div>
+                <div className="date">
+                  {formatDate(conv.created_at)}
+                  {conv.ip_address && <> ・ {conv.ip_address}</>}
+                </div>
               </div>
             ))}
           </div>
