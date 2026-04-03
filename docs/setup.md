@@ -213,6 +213,47 @@ sudo systemctl restart ai-django ai-nextjs
 
 ---
 
+## HTTPS対応（Let's Encrypt / certbot）
+
+### インストール
+
+```bash
+sudo apt-get install -y certbot python3-certbot-nginx
+```
+
+### 証明書取得・nginx自動設定
+
+```bash
+sudo certbot --nginx -d <YOUR_DOMAIN> \
+  --non-interactive --agree-tos \
+  -m <YOUR_EMAIL> \
+  --redirect
+```
+
+- `--redirect` で HTTP → HTTPS の自動リダイレクトも設定される
+- 証明書は `/etc/letsencrypt/live/<YOUR_DOMAIN>/` に保存
+- 有効期限90日、自動更新のcronジョブが自動登録される
+
+### .env を https に更新
+
+```env
+CORS_ALLOWED_ORIGINS=https://<YOUR_DOMAIN>
+```
+
+反映：
+
+```bash
+sudo systemctl restart ai-django
+```
+
+### 自動更新の確認
+
+```bash
+sudo certbot renew --dry-run
+```
+
+---
+
 ## ドメイン設定
 
 DNS で `<YOUR_DOMAIN>` を `<SERVER_IP>` に向けた後、nginx の `server_name` を変更する。
