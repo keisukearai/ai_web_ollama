@@ -60,17 +60,29 @@ ai_web_ollama/
 }
 ```
 
-### レスポンス例
+レスポンスは **SSE（Server-Sent Events）** 形式でストリーミング配信される。
+
+```
+data: {"token": "def"}
+data: {"token": " is_prime"}
+...
+data: {"done": true, "id": 1, "created_at": "...", "duration_ms": 34521, "ip_address": "1.2.3.4"}
+```
+
+### GET /api/history/ レスポンス例
 
 ```json
-{
-  "id": 1,
-  "question": "Pythonで素数を判定する関数を書いて",
-  "response": "def is_prime(n):\n...",
-  "model_name": "gemma3:4b",
-  "duration_ms": 34521,
-  "created_at": "2026-04-03T10:00:00+09:00"
-}
+[
+  {
+    "id": 1,
+    "question": "Pythonで素数を判定する関数を書いて",
+    "response": "def is_prime(n):\n...",
+    "model_name": "gemma3:4b",
+    "duration_ms": 34521,
+    "ip_address": "1.2.3.4",
+    "created_at": "2026-04-03T10:00:00+09:00"
+  }
+]
 ```
 
 ---
@@ -182,6 +194,96 @@ curl http://localhost:8000/api/models/
 
 # ブラウザでアクセス
 # http://<SERVER_IP>
+```
+
+---
+
+## Django 管理画面
+
+### スーパーユーザー作成
+
+```bash
+cd ~/ai_web_ollama/backend
+source venv/bin/activate
+python manage.py createsuperuser
+deactivate
+```
+
+### アクセス
+
+`https://<YOUR_DOMAIN>/admin/` にアクセスし、作成したユーザーでログイン。  
+**Api → Conversations** から全ユーザーの質問・応答・IPアドレスを確認できる。
+
+### CSRF エラーが出る場合（HTTPS環境）
+
+Django 4.0以降、HTTPS経由のリクエストには `CSRF_TRUSTED_ORIGINS` の設定が必要。  
+`.env` に以下を追加して Django を再起動する。
+
+```env
+CSRF_TRUSTED_ORIGINS=https://<YOUR_DOMAIN>
+```
+
+```bash
+sudo systemctl restart ai-django
+```
+
+### 管理画面の CSS が効かない場合（403エラー）
+
+nginx（www-data）が `staticfiles/` を読めていない場合に発生する。
+
+```bash
+sudo chmod o+x /home/<USER>
+sudo chmod -R o+rX ~/ai_web_ollama/backend/staticfiles
+```
+
+### nginx に `/admin/` ルートを追加
+
+`nginx/default.conf` の `/api/` location の前に追記する。
+
+```nginx
+location /admin/ {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
+
+反映：
+
+```bash
+sudo cp ~/ai_web_ollama/nginx/default.conf /etc/nginx/sites-available/ai_web_ollama
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+---
+
+## フロントエンド構成
+
+### 技術スタック
+
+- **Next.js 14** (App Router)
+- **Tailwind CSS** — レイアウト・スタイリング
+- **lucide-react** — アイコン
+
+### 主な機能
+
+| 機能 | 説明 |
+|---|---|
+| ストリーミング表示 | AIの回答をトークン単位でリアルタイム表示 |
+| ダーク/ライトモード | ヘッダーのアイコンで切り替え（localStorage保存） |
+| セッション履歴 | 現在のページセッション中の質問のみ表示、リロードでクリア |
+| モバイル対応 | スマートフォンでは履歴をドロワー表示 |
+
+### Tailwind CSS の追加方法
+
+新規セットアップ時は `npm install` で自動インストールされる。  
+手動で追加する場合：
+
+```bash
+cd ~/ai_web_ollama/frontend
+npm install -D tailwindcss autoprefixer postcss
+npm install lucide-react
 ```
 
 ---
