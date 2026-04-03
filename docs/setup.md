@@ -404,13 +404,46 @@ sudo systemctl start postgresql
 ### AI応答が遅い / タイムアウト
 
 - CPU 推論のため 1 応答あたり **30〜60 秒** かかるのは正常（7Bモデルは60〜120秒）
-- フロントエンドのタイムアウトは **120秒**。超えると「タイムアウト」エラーを表示
+- フロントエンドのタイムアウトは **120秒**。超えると「タイムアウト」エラーを表示してボタンが活性に戻る
 - nginx のタイムアウトは `proxy_read_timeout 300s` に設定済み
 - Django の gunicorn タイムアウトも `--timeout 300` に設定済み
 
+### タイムアウト設計
+
+120秒のタイムアウトを複数レイヤーで実装している。
+
+```
+ブラウザ（120秒）
+  └─ AbortController.abort()
+       ├─ fetch() 中 → catch(AbortError) → onError() → setLoading(false)
+       └─ reader.read() 中 → catch(AbortError) → onError() → setLoading(false)
+
+Django（ジェネレーター）
+  └─ token_queue.get(timeout=125)
+       └─ queue.Empty 発生 → stop_event.set() + resp.close() → onError イベント送信
+
+       クライアント切断時（GeneratorExit）
+       └─ stop_event.set() + resp.close() → Ollama スレッド即時停止
+
+Ollama スレッド（バックグラウンド）
+  └─ stop_event.is_set() を確認 → break で iter_lines() を抜ける
+  └─ resp.close() で接続を強制切断 → iter_lines() が即時中断
+```
+
+**qwen3 モデルの thinking モード対応**
+
+qwen3 はデフォルトで内部推論（thinking）が有効で、単純な質問でも数分かかる場合がある。  
+`/api/chat` エンドポイントに `think: false` を渡すことで thinking を無効化している。
+
+```python
+# backend/api/views.py
+if model.startswith('qwen3'):
+    payload['think'] = False
+```
+
 ### 推論プロセスが止まらない場合（CPU が 100% に張り付く）
 
-ブラウザをリロードしてもサーバー側の推論は止まらない。以下の手順で強制終了する。
+タイムアウト設計により通常は自動で停止するが、手動で止める場合は以下を実行する。
 
 ```bash
 # 推論中の ollama runner プロセスを確認
