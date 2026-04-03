@@ -44,10 +44,12 @@ class StreamChatView(View):
                 peak_cpu = 0.0
                 peak_memory = 0.0
                 token_count = 0
+                # qwen3 は thinking モードがデフォルト有効のため /no_think を付加
+                prompt = question + ('\n/no_think' if model.startswith('qwen3') else '')
                 try:
                     with requests.post(
                         f"{settings.OLLAMA_URL}/api/generate",
-                        json={'model': model, 'prompt': question, 'stream': True},
+                        json={'model': model, 'prompt': prompt, 'stream': True},
                         stream=True,
                         timeout=120,
                     ) as resp:
