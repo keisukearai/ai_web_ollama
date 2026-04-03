@@ -1,5 +1,6 @@
 import json
 import queue
+from queue import Empty
 import threading
 import time
 import psutil
@@ -121,7 +122,18 @@ class StreamChatView(View):
 
             try:
                 while True:
-                    item = token_queue.get(timeout=125)
+                    try:
+                        item = token_queue.get(timeout=125)
+                    except Empty:
+                        # キュータイムアウト（thinking が長すぎる等）→ Ollama を停止してエラー返却
+                        stop_event.set()
+                        if response_holder[0] is not None:
+                            try:
+                                response_holder[0].close()
+                            except Exception:
+                                pass
+                        yield f"data: {json.dumps({'error': 'タイムアウト：応答に時間がかかりすぎました'})}\n\n"
+                        break
                     if item is None:
                         break
                     kind, data = item
