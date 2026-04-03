@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Sun, Moon, Menu, X, Send } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { sendChatStream, fetchModels, Conversation } from '@/lib/api';
 
 type Message = {
@@ -193,9 +195,11 @@ export default function Home() {
                 </div>
                 {msg.streaming && msg.content === '' ? (
                   <div className="thinking"><span /><span /><span /></div>
+                ) : msg.role === 'user' ? (
+                  <div className="bubble-user">{msg.content}</div>
                 ) : (
-                  <div className={msg.role === 'user' ? 'bubble-user' : 'bubble-ai'}>
-                    {msg.content}
+                  <div className="bubble-ai md">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                   </div>
                 )}
                 {msg.role === 'ai' && !msg.streaming && msg.duration_ms && (
