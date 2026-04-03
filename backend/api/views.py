@@ -1,44 +1,66 @@
+import json
 import time
 import requests
 from django.conf import settings
+from django.http import StreamingHttpResponse
+from django.utils.decorators import method_decorator
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Conversation
 from .serializers import ConversationSerializer
 
 
-class ChatView(APIView):
+@method_decorator(csrf_exempt, name='dispatch')
+class StreamChatView(View):
     def post(self, request):
-        question = request.data.get('question', '').strip()
+        body = json.loads(request.body)
+        question = body.get('question', '').strip()
+        model = body.get('model', settings.OLLAMA_MODEL)
+
         if not question:
-            return Response({'error': '質問を入力してください'}, status=400)
+            def error_stream():
+                yield f"data: {json.dumps({'error': '質問を入力してください'})}\n\n"
+            return StreamingHttpResponse(error_stream(), content_type='text/event-stream')
 
-        model = request.data.get('model', settings.OLLAMA_MODEL)
-        ollama_url = f"{settings.OLLAMA_URL}/api/generate"
+        def generate():
+            full_response = ''
+            start = time.time()
+            try:
+                with requests.post(
+                    f"{settings.OLLAMA_URL}/api/generate",
+                    json={'model': model, 'prompt': question, 'stream': True},
+                    stream=True,
+                    timeout=300,
+                ) as resp:
+                    for line in resp.iter_lines():
+                        if not line:
+                            continue
+                        data = json.loads(line)
+                        token = data.get('response', '')
+                        if token:
+                            full_response += token
+                            yield f"data: {json.dumps({'token': token})}\n\n"
+                        if data.get('done'):
+                            duration_ms = int((time.time() - start) * 1000)
+                            conv = Conversation.objects.create(
+                                question=question,
+                                response=full_response,
+                                model_name=model,
+                                duration_ms=duration_ms,
+                            )
+                            yield f"data: {json.dumps({'done': True, 'id': conv.id, 'created_at': conv.created_at.isoformat(), 'duration_ms': duration_ms})}\n\n"
+                            return
+            except requests.exceptions.Timeout:
+                yield f"data: {json.dumps({'error': 'AIの応答がタイムアウトしました'})}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'error': f'Ollama接続エラー: {e}'})}\n\n"
 
-        start = time.time()
-        try:
-            resp = requests.post(
-                ollama_url,
-                json={'model': model, 'prompt': question, 'stream': False},
-                timeout=300,
-            )
-            resp.raise_for_status()
-            response_text = resp.json().get('response', '')
-        except requests.exceptions.Timeout:
-            return Response({'error': 'AIの応答がタイムアウトしました'}, status=504)
-        except Exception as e:
-            return Response({'error': f'Ollama接続エラー: {e}'}, status=502)
-
-        duration_ms = int((time.time() - start) * 1000)
-
-        conv = Conversation.objects.create(
-            question=question,
-            response=response_text,
-            model_name=model,
-            duration_ms=duration_ms,
-        )
-        return Response(ConversationSerializer(conv).data, status=201)
+        response = StreamingHttpResponse(generate(), content_type='text/event-stream')
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'
+        return response
 
 
 class HistoryView(APIView):

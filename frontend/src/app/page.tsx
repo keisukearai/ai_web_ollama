@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { sendChat, fetchHistory, fetchModels, Conversation } from '@/lib/api';
+import { sendChatStream, fetchHistory, fetchModels, Conversation } from '@/lib/api';
 
 type Message = {
   role: 'user' | 'ai';
   content: string;
   duration_ms?: number | null;
   created_at?: string;
+  streaming?: boolean;
 };
 
 function formatDate(iso: string) {
@@ -35,7 +36,7 @@ export default function Home() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+  }, [messages]);
 
   const adjustTextarea = () => {
     const el = textareaRef.current;
@@ -51,26 +52,61 @@ export default function Home() {
     setInput('');
     setError('');
     setLoading(true);
-    setMessages(prev => [...prev, { role: 'user', content: q }]);
-
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
-    try {
-      const conv = await sendChat(q, model);
-      setMessages(prev => [...prev, {
-        role: 'ai',
-        content: conv.response,
-        duration_ms: conv.duration_ms,
-        created_at: conv.created_at,
-      }]);
-      setHistory(prev => [conv, ...prev]);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '不明なエラー';
-      setError(msg);
-      setMessages(prev => prev.slice(0, -1));
-    } finally {
-      setLoading(false);
-    }
+    // ユーザーメッセージ + 空のAIメッセージを追加
+    setMessages(prev => [
+      ...prev,
+      { role: 'user', content: q },
+      { role: 'ai', content: '', streaming: true },
+    ]);
+
+    let accumulated = '';
+
+    await sendChatStream(
+      q,
+      model,
+      (token) => {
+        accumulated += token;
+        setMessages(prev => {
+          const msgs = [...prev];
+          const last = msgs[msgs.length - 1];
+          if (last?.role === 'ai') {
+            msgs[msgs.length - 1] = { ...last, content: accumulated };
+          }
+          return msgs;
+        });
+      },
+      (data) => {
+        setMessages(prev => {
+          const msgs = [...prev];
+          const last = msgs[msgs.length - 1];
+          if (last?.role === 'ai') {
+            msgs[msgs.length - 1] = {
+              ...last,
+              streaming: false,
+              duration_ms: data.duration_ms,
+              created_at: data.created_at,
+            };
+          }
+          return msgs;
+        });
+        setHistory(prev => [{
+          id: data.id,
+          question: q,
+          response: accumulated,
+          model_name: model,
+          duration_ms: data.duration_ms,
+          created_at: data.created_at,
+        }, ...prev]);
+        setLoading(false);
+      },
+      (msg) => {
+        setError(msg);
+        setMessages(prev => prev.slice(0, -2));
+        setLoading(false);
+      },
+    );
   }, [input, loading, model]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -117,21 +153,17 @@ export default function Home() {
             )}
             {messages.map((msg, i) => (
               <div key={i} className={`message ${msg.role}`}>
-                <div className="bubble">{msg.content}</div>
-                {msg.role === 'ai' && msg.duration_ms && (
+                <div className="bubble">
+                  {msg.content}
+                  {msg.streaming && <span className="cursor" />}
+                </div>
+                {msg.role === 'ai' && !msg.streaming && msg.duration_ms && (
                   <div className="meta">
                     {msg.created_at && formatDate(msg.created_at)} ・ {(msg.duration_ms / 1000).toFixed(1)}秒
                   </div>
                 )}
               </div>
             ))}
-            {loading && (
-              <div className="message ai">
-                <div className="bubble thinking">
-                  <span /><span /><span />
-                </div>
-              </div>
-            )}
             {error && <div className="error-msg">{error}</div>}
             <div ref={bottomRef} />
           </div>
@@ -147,7 +179,7 @@ export default function Home() {
               rows={1}
             />
             <button className="send" onClick={handleSubmit} disabled={loading || !input.trim()}>
-              {loading ? '送信中' : '送信'}
+              {loading ? '生成中' : '送信'}
             </button>
           </div>
         </div>
