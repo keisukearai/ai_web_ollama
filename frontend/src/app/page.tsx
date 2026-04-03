@@ -321,6 +321,7 @@ export default function Home() {
                 <div className="truncate font-medium text-xs">{conv.question}</div>
                 <div className="text-xs mt-0.5 space-x-1" style={{ color: 'var(--text-muted)' }}>
                   <span>{formatDate(conv.created_at)}</span>
+                  <span>· {conv.model_name}</span>
                   {conv.ip_address && <span>· {conv.ip_address}</span>}
                 </div>
               </button>
