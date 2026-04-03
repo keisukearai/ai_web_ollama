@@ -43,7 +43,7 @@ class StreamChatView(View):
                     f"{settings.OLLAMA_URL}/api/generate",
                     json={'model': model, 'prompt': question, 'stream': True},
                     stream=True,
-                    timeout=300,
+                    timeout=120,
                 ) as resp:
                     for line in resp.iter_lines():
                         if not line:
