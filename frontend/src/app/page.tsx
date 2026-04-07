@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Sun, Moon, Menu, X, Send } from 'lucide-react';
+import { Sun, Moon, Menu, X, Send, Square } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { sendChatStream, fetchModels, fetchStats, Conversation, ServerStats } from '@/lib/api';
@@ -37,6 +37,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const cancelRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('theme');
@@ -90,7 +91,7 @@ export default function Home() {
     ]);
 
     let accumulated = '';
-    await sendChatStream(
+    cancelRef.current = sendChatStream(
       q, model,
       (token) => {
         accumulated += token;
@@ -102,6 +103,7 @@ export default function Home() {
         });
       },
       (data) => {
+        cancelRef.current = null;
         setMessages(prev => {
           const msgs = [...prev];
           const last = msgs[msgs.length - 1];
@@ -124,8 +126,20 @@ export default function Home() {
         setLoading(false);
       },
       (msg) => {
+        cancelRef.current = null;
         setError(msg);
         setMessages(prev => prev.slice(0, -2));
+        setLoading(false);
+      },
+      () => {
+        // ユーザーによる中断 — 部分回答を残して streaming を解除
+        cancelRef.current = null;
+        setMessages(prev => {
+          const msgs = [...prev];
+          const last = msgs[msgs.length - 1];
+          if (last?.role === 'ai') msgs[msgs.length - 1] = { ...last, streaming: false };
+          return msgs;
+        });
         setLoading(false);
       },
     );
@@ -262,15 +276,27 @@ export default function Home() {
                   color: 'var(--text)',
                 }}
               />
-              <button
-                onClick={handleSubmit}
-                disabled={loading || !input.trim()}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 h-[44px]"
-                style={{ background: loading ? 'var(--text-muted)' : 'var(--accent)' }}
-              >
-                <Send size={15} />
-                <span className="hidden sm:inline">{loading ? '生成中' : '送信'}</span>
-              </button>
+              {loading ? (
+                <button
+                  onClick={() => cancelRef.current?.()}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all flex-shrink-0 h-[44px]"
+                  style={{ background: '#ef4444' }}
+                  title="生成を停止"
+                >
+                  <Square size={15} />
+                  <span className="hidden sm:inline">停止</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  disabled={!input.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 h-[44px]"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  <Send size={15} />
+                  <span className="hidden sm:inline">送信</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
