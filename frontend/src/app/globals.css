@@ -98,7 +98,7 @@
 .md h1 { font-size: 1.2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
 .md h2 { font-size: 1.05rem; }
 .md h3 { font-size: 0.95rem; }
-.md p { margin-bottom: 0.3em; line-height: 1.5; }
+.md p { margin-bottom: 0; line-height: 1.2; }
 .md p:last-child { margin-bottom: 0; }
 .md strong { font-weight: 700; color: var(--text); }
 .md em { font-style: italic; }
