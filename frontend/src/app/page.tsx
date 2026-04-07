@@ -35,7 +35,7 @@ export default function Home() {
   const [isDark, setIsDark] = useState(true);
   const [stats, setStats] = useState<ServerStats | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [timeout, setTimeout] = useState(120);
+  const [timeoutSec, setTimeoutSec] = useState(120);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cancelRef = useRef<(() => void) | null>(null);
@@ -154,9 +154,9 @@ export default function Home() {
         });
         setLoading(false);
       },
-      timeout,
+      timeoutSec,
     );
-  }, [input, loading, model]);
+  }, [input, loading, model, timeoutSec]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleSubmit(); }
@@ -190,8 +190,8 @@ export default function Home() {
         </select>
 
         <select
-          value={timeout}
-          onChange={e => setTimeout(Number(e.target.value))}
+          value={timeoutSec}
+          onChange={e => setTimeoutSec(Number(e.target.value))}
           className="text-xs rounded-md px-2 py-1 border cursor-pointer outline-none"
           style={{ background: 'var(--surface2)', borderColor: 'var(--border)', color: 'var(--text)' }}
           title="タイムアウト"
