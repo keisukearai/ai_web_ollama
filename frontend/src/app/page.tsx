@@ -38,6 +38,8 @@ export default function Home() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cancelRef = useRef<(() => void) | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const userScrolledRef = useRef(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('theme');
@@ -57,8 +59,16 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!userScrolledRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
+
+  const handleScroll = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    userScrolledRef.current = el.scrollHeight - el.scrollTop - el.clientHeight > 100;
+  };
 
   const toggleTheme = () => {
     const next = !isDark;
@@ -82,6 +92,7 @@ export default function Home() {
     setError('');
     setLoading(true);
     setSidebarOpen(false);
+    userScrolledRef.current = false;
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
     setMessages(prev => [
@@ -213,7 +224,7 @@ export default function Home() {
 
         {/* Chat area */}
         <div className="flex flex-col flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
+          <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full gap-3" style={{ color: 'var(--text-muted)' }}>
                 <div className="text-5xl">💬</div>
