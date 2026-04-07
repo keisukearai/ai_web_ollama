@@ -221,7 +221,7 @@ export default function Home() {
         <select
           value={timeoutSec}
           onChange={e => setTimeoutSec(Number(e.target.value))}
-          className="hidden sm:block text-xs rounded-md px-2 py-1 border cursor-pointer outline-none"
+          className="text-xs rounded-md px-2 py-1 border cursor-pointer outline-none"
           style={{ background: 'var(--surface2)', borderColor: 'var(--border)', color: 'var(--text)' }}
           title="タイムアウト"
         >
