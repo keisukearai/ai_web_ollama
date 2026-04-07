@@ -146,7 +146,7 @@ export default function Home() {
   }, [input, loading, model]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
+    if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleSubmit(); }
   };
 
   const loadConversation = (conv: Conversation) => {
@@ -218,7 +218,7 @@ export default function Home() {
               <div className="flex flex-col items-center justify-center h-full gap-3" style={{ color: 'var(--text-muted)' }}>
                 <div className="text-5xl">💬</div>
                 <p className="text-sm">質問を入力して送信してください</p>
-                <p className="text-xs opacity-70">Shift+Enter で改行 / Enter で送信</p>
+                <p className="text-xs opacity-70">Enter で改行 / Ctrl+Enter で送信</p>
               </div>
             )}
 
@@ -267,7 +267,7 @@ export default function Home() {
                 value={input}
                 onChange={e => { setInput(e.target.value); adjustTextarea(); }}
                 onKeyDown={handleKeyDown}
-                placeholder="質問を入力... (Enter で送信)"
+                placeholder="質問を入力... (Ctrl+Enter で送信)"
                 disabled={loading}
                 rows={1}
                 className="flex-1 rounded-xl px-4 py-2.5 text-sm resize-none outline-none border transition-colors min-h-[44px] max-h-40"
