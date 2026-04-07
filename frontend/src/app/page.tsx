@@ -221,25 +221,25 @@ export default function Home() {
         <select
           value={timeoutSec}
           onChange={e => setTimeoutSec(Number(e.target.value))}
-          className="text-xs rounded-md px-2 py-1 border cursor-pointer outline-none"
+          className="hidden sm:block text-xs rounded-md px-2 py-1 border cursor-pointer outline-none"
           style={{ background: 'var(--surface2)', borderColor: 'var(--border)', color: 'var(--text)' }}
           title="タイムアウト"
         >
           {[15, 30, 60, 120, 180, 240, 300].map(s => <option key={s} value={s}>{s}秒</option>)}
         </select>
 
-        <span className="text-xs px-2 py-0.5 rounded-full font-medium text-white" style={{ background: 'var(--accent)' }}>
+        <span className="hidden sm:inline text-xs px-2 py-0.5 rounded-full font-medium text-white" style={{ background: 'var(--accent)' }}>
           Ollama
         </span>
 
         {stats && (
-          <div className="ml-auto flex items-center gap-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+          <div className="hidden sm:flex ml-auto items-center gap-3 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
             <span title="CPU使用率">CPU {stats.cpu_percent.toFixed(0)}%</span>
             <span title="メモリ使用率">MEM {stats.memory_used_gb}/{stats.memory_total_gb}GB</span>
           </div>
         )}
 
-        <div className={`flex items-center gap-2 ${stats ? '' : 'ml-auto'}`}>
+        <div className={`flex items-center gap-2 ml-auto sm:ml-0 ${stats ? 'sm:ml-0' : 'sm:ml-auto'}`}>
           <button
             onClick={toggleTheme}
             className="p-2 rounded-lg transition-colors"

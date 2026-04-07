@@ -48,7 +48,7 @@
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-word;
-    max-width: 78%;
+    max-width: 92%;
   }
   .bubble-ai {
     background-color: var(--ai-bubble);
@@ -59,7 +59,11 @@
     font-size: 0.9rem;
     line-height: 1.3;
     word-break: break-word;
-    max-width: 78%;
+    max-width: 92%;
+  }
+  @media (min-width: 640px) {
+    .bubble-user { max-width: 78%; }
+    .bubble-ai   { max-width: 78%; }
   }
   .thinking {
     display: flex;
