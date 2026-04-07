@@ -225,7 +225,7 @@ export default function Home() {
           style={{ background: 'var(--surface2)', borderColor: 'var(--border)', color: 'var(--text)' }}
           title="タイムアウト"
         >
-          {[30, 60, 120, 180, 240].map(s => <option key={s} value={s}>{s}秒</option>)}
+          {[15, 30, 60, 120, 180, 240, 300].map(s => <option key={s} value={s}>{s}秒</option>)}
         </select>
 
         <span className="text-xs px-2 py-0.5 rounded-full font-medium text-white" style={{ background: 'var(--accent)' }}>
