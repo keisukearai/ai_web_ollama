@@ -179,6 +179,22 @@ class StreamChatView(View):
                         response_holder[0].close()
                     except Exception:
                         pass
+                # 経過時間が timeout_sec に近い場合はタイムアウトとして DB 保存
+                elapsed = time.time() - start_holder[0]
+                if elapsed >= timeout_sec - 5 and full_response_holder[0]:
+                    try:
+                        Conversation.objects.create(
+                            question=question,
+                            response=full_response_holder[0],
+                            model_name=model,
+                            duration_ms=int(elapsed * 1000),
+                            ip_address=ip_address,
+                            cpu_percent=None,
+                            memory_percent=None,
+                            timed_out=True,
+                        )
+                    except Exception:
+                        pass
 
         response = StreamingHttpResponse(generate(), content_type='text/event-stream')
         response['Cache-Control'] = 'no-cache'
