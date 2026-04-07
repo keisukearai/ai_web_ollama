@@ -233,7 +233,7 @@ export default function Home() {
                   <div className="bubble-user">{msg.content}</div>
                 ) : (
                   <div className="bubble-ai md">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content.replace(/\n{2,}/g, '\n')}</ReactMarkdown>
                   </div>
                 )}
                 {msg.role === 'ai' && !msg.streaming && msg.duration_ms && (
