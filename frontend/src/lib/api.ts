@@ -22,6 +22,7 @@ const BASE = '/api';
 export function sendChatStream(
   question: string,
   model: string,
+  mode: string,
   onToken: (token: string) => void,
   onDone: (data: { id: number; created_at: string; duration_ms: number; ip_address: string | null; cpu_percent: number | null; memory_percent: number | null }) => void,
   onError: (msg: string) => void,
@@ -45,7 +46,7 @@ export function sendChatStream(
       res = await fetch(`${BASE}/chat/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, model, timeout: timeoutSec }),
+        body: JSON.stringify({ question, model, mode, timeout: timeoutSec }),
         signal: controller.signal,
       });
     } catch (e: unknown) {

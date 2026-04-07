@@ -38,6 +38,7 @@ export default function Home() {
   const [stats, setStats] = useState<ServerStats | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [timeoutSec, setTimeoutSec] = useState(120);
+  const [mode, setMode] = useState<'要約' | '通常' | '深く'>('通常');
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cancelRef = useRef<(() => void) | null>(null);
@@ -108,7 +109,7 @@ export default function Home() {
 
     let accumulated = '';
     cancelRef.current = sendChatStream(
-      q, model,
+      q, model, mode,
       (token) => {
         accumulated += token;
         setMessages(prev => {
@@ -178,7 +179,7 @@ export default function Home() {
         setLoading(false);
       },
     );
-  }, [input, loading, model, timeoutSec]);
+  }, [input, loading, model, mode, timeoutSec]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); handleSubmit(); }
@@ -307,6 +308,22 @@ export default function Home() {
             className="px-4 py-3 border-t flex-shrink-0"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
           >
+            <div className="flex gap-1 max-w-3xl mx-auto mb-2">
+              {(['要約', '通常', '深く'] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className="px-3 py-1 rounded-full text-xs font-medium transition-colors border"
+                  style={{
+                    background: mode === m ? 'var(--accent)' : 'var(--surface2)',
+                    borderColor: mode === m ? 'var(--accent)' : 'var(--border)',
+                    color: mode === m ? '#fff' : 'var(--text-muted)',
+                  }}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
             <div className="flex gap-2 items-end max-w-3xl mx-auto">
               <textarea
                 ref={textareaRef}

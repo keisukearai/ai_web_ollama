@@ -26,6 +26,12 @@ class StreamChatView(View):
         question = body.get('question', '').strip()
         model = body.get('model', settings.OLLAMA_MODEL)
         timeout_sec = int(body.get('timeout', 120))
+        mode = body.get('mode', '通常')
+
+        SYSTEM_MESSAGES = {
+            '要約': '回答は簡潔にまとめ、100〜150文字程度で答えてください。',
+            '深く': '詳しく、多角的な視点から丁寧に説明してください。',
+        }
 
         if not question:
             def error_stream():
@@ -51,9 +57,14 @@ class StreamChatView(View):
                 token_count = 0
 
                 # /api/chat を使用（qwen3 の think: false が正しく効く）
+                messages = []
+                if mode in SYSTEM_MESSAGES:
+                    messages.append({'role': 'system', 'content': SYSTEM_MESSAGES[mode]})
+                messages.append({'role': 'user', 'content': question})
+
                 payload = {
                     'model': model,
-                    'messages': [{'role': 'user', 'content': question}],
+                    'messages': messages,
                     'stream': True,
                 }
                 if model.startswith('qwen3'):
