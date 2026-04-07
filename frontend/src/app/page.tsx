@@ -17,6 +17,7 @@ type Message = {
   streaming?: boolean;
   model_name?: string;
   aborted?: boolean;
+  timed_out?: boolean;
 };
 
 function formatDate(iso: string) {
@@ -167,15 +168,20 @@ export default function Home() {
       },
       timeoutSec,
       () => {
-        // タイムアウト — 部分回答を残して streaming を解除
+        // タイムアウト — 部分回答を残して経過時間・モデル名を表示
         cancelRef.current = null;
+        const elapsed = Date.now() - startTimeRef.current;
         setMessages(prev => {
           const msgs = [...prev];
           const last = msgs[msgs.length - 1];
-          if (last?.role === 'ai') msgs[msgs.length - 1] = { ...last, streaming: false };
+          if (last?.role === 'ai') msgs[msgs.length - 1] = {
+            ...last, streaming: false,
+            duration_ms: elapsed,
+            model_name: model,
+            timed_out: true,
+          };
           return msgs;
         });
-        setError('タイムアウト：応答に時間がかかりすぎました');
         setLoading(false);
       },
     );
@@ -288,6 +294,7 @@ export default function Home() {
                     <span>{(msg.duration_ms / 1000).toFixed(1)}sec</span>
                     {msg.model_name && <><span>·</span><span>{msg.model_name}</span></>}
                     {msg.aborted && <><span>·</span><span style={{ color: '#b91c1c' }}>停止</span></>}
+                    {msg.timed_out && <><span>·</span><span style={{ color: '#b91c1c' }}>タイムアウト</span></>}
                     {msg.cpu_percent != null && <><span>·</span><span>CPU {msg.cpu_percent}%</span></>}
                     {msg.memory_percent != null && <><span>·</span><span>MEM {msg.memory_percent}%</span></>}
                   </div>
