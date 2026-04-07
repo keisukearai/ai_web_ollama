@@ -15,6 +15,8 @@ type Message = {
   memory_percent?: number | null;
   created_at?: string;
   streaming?: boolean;
+  model_name?: string;
+  aborted?: boolean;
 };
 
 function formatDate(iso: string) {
@@ -41,6 +43,7 @@ export default function Home() {
   const cancelRef = useRef<(() => void) | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const userScrolledRef = useRef(false);
+  const startTimeRef = useRef<number>(0);
 
   useEffect(() => {
     const saved = localStorage.getItem('theme');
@@ -94,6 +97,7 @@ export default function Home() {
     setLoading(true);
     setSidebarOpen(false);
     userScrolledRef.current = false;
+    startTimeRef.current = Date.now();
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
     setMessages(prev => [
@@ -144,12 +148,18 @@ export default function Home() {
         setLoading(false);
       },
       () => {
-        // ユーザーによる中断 — 部分回答を残して streaming を解除
+        // ユーザーによる中断 — 部分回答を残して経過時間・モデル名を表示
         cancelRef.current = null;
+        const elapsed = Date.now() - startTimeRef.current;
         setMessages(prev => {
           const msgs = [...prev];
           const last = msgs[msgs.length - 1];
-          if (last?.role === 'ai') msgs[msgs.length - 1] = { ...last, streaming: false };
+          if (last?.role === 'ai') msgs[msgs.length - 1] = {
+            ...last, streaming: false,
+            duration_ms: elapsed,
+            model_name: model,
+            aborted: true,
+          };
           return msgs;
         });
         setLoading(false);
@@ -271,11 +281,12 @@ export default function Home() {
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                   </div>
                 )}
-                {msg.role === 'ai' && !msg.streaming && msg.duration_ms && (
+                {msg.role === 'ai' && !msg.streaming && msg.duration_ms != null && (
                   <div className="text-xs px-1 space-x-1" style={{ color: 'var(--text-muted)' }}>
-                    <span>{msg.created_at && formatDate(msg.created_at)}</span>
-                    <span>·</span>
+                    {msg.created_at && <><span>{formatDate(msg.created_at)}</span><span>·</span></>}
                     <span>{(msg.duration_ms / 1000).toFixed(1)}sec</span>
+                    {msg.model_name && <><span>·</span><span>{msg.model_name}</span></>}
+                    {msg.aborted && <><span>·</span><span style={{ color: '#b91c1c' }}>停止</span></>}
                     {msg.cpu_percent != null && <><span>·</span><span>CPU {msg.cpu_percent}%</span></>}
                     {msg.memory_percent != null && <><span>·</span><span>MEM {msg.memory_percent}%</span></>}
                   </div>
@@ -315,7 +326,7 @@ export default function Home() {
                 <button
                   onClick={() => cancelRef.current?.()}
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all flex-shrink-0 h-[44px]"
-                  style={{ background: '#ef4444' }}
+                  style={{ background: '#b91c1c' }}
                   title="生成を停止"
                 >
                   <AlertTriangle size={15} />
