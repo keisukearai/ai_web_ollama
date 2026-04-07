@@ -26,10 +26,11 @@ export function sendChatStream(
   onDone: (data: { id: number; created_at: string; duration_ms: number; ip_address: string | null; cpu_percent: number | null; memory_percent: number | null }) => void,
   onError: (msg: string) => void,
   onAbort?: () => void,
+  timeoutSec: number = 120,
 ): () => void {
   const controller = new AbortController();
   let userAborted = false;
-  const timeoutId = setTimeout(() => controller.abort(), 120_000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutSec * 1000);
 
   const cancel = () => {
     userAborted = true;
@@ -43,7 +44,7 @@ export function sendChatStream(
       res = await fetch(`${BASE}/chat/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, model }),
+        body: JSON.stringify({ question, model, timeout: timeoutSec }),
         signal: controller.signal,
       });
     } catch (e: unknown) {

@@ -35,6 +35,7 @@ export default function Home() {
   const [isDark, setIsDark] = useState(true);
   const [stats, setStats] = useState<ServerStats | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [timeout, setTimeout] = useState(120);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cancelRef = useRef<(() => void) | null>(null);
@@ -153,6 +154,7 @@ export default function Home() {
         });
         setLoading(false);
       },
+      timeout,
     );
   }, [input, loading, model]);
 
@@ -185,6 +187,16 @@ export default function Home() {
           style={{ background: 'var(--surface2)', borderColor: 'var(--border)', color: 'var(--text)' }}
         >
           {models.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+
+        <select
+          value={timeout}
+          onChange={e => setTimeout(Number(e.target.value))}
+          className="text-xs rounded-md px-2 py-1 border cursor-pointer outline-none"
+          style={{ background: 'var(--surface2)', borderColor: 'var(--border)', color: 'var(--text)' }}
+          title="タイムアウト"
+        >
+          {[30, 60, 120, 180, 240].map(s => <option key={s} value={s}>{s}秒</option>)}
         </select>
 
         <span className="text-xs px-2 py-0.5 rounded-full font-medium text-white" style={{ background: 'var(--accent)' }}>

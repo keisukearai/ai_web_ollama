@@ -25,6 +25,7 @@ class StreamChatView(View):
         body = json.loads(request.body)
         question = body.get('question', '').strip()
         model = body.get('model', settings.OLLAMA_MODEL)
+        timeout_sec = int(body.get('timeout', 120))
 
         if not question:
             def error_stream():
@@ -61,7 +62,7 @@ class StreamChatView(View):
                         f"{settings.OLLAMA_URL}/api/chat",
                         json=payload,
                         stream=True,
-                        timeout=120,
+                        timeout=timeout_sec,
                     )
                     response_holder[0] = resp
 
@@ -123,7 +124,7 @@ class StreamChatView(View):
             try:
                 while True:
                     try:
-                        item = token_queue.get(timeout=125)
+                        item = token_queue.get(timeout=timeout_sec + 5)
                     except Empty:
                         # キュータイムアウト（thinking が長すぎる等）→ Ollama を停止してエラー返却
                         stop_event.set()
