@@ -27,10 +27,11 @@ export function sendChatStream(
   onError: (msg: string) => void,
   onAbort?: () => void,
   timeoutSec: number = 120,
+  onTimeout?: () => void,
 ): () => void {
   const controller = new AbortController();
   let userAborted = false;
-  const timeoutId = setTimeout(() => controller.abort(), timeoutSec * 1000);
+  const timeoutId = setTimeout(() => { if (!userAborted) controller.abort(); }, timeoutSec * 1000);
 
   const cancel = () => {
     userAborted = true;
@@ -50,7 +51,7 @@ export function sendChatStream(
     } catch (e: unknown) {
       clearTimeout(timeoutId);
       if (e instanceof DOMException && e.name === 'AbortError') {
-        if (userAborted) { onAbort?.(); } else { onError('タイムアウト：応答に時間がかかりすぎました。質問を短くして再送してください。'); }
+        if (userAborted) { onAbort?.(); } else { onTimeout ? onTimeout() : onError('タイムアウト：応答に時間がかかりすぎました。質問を短くして再送してください。'); }
       } else {
         onError('サーバーに接続できませんでした');
       }
@@ -89,7 +90,7 @@ export function sendChatStream(
     } catch (e: unknown) {
       clearTimeout(timeoutId);
       if (e instanceof DOMException && e.name === 'AbortError') {
-        if (userAborted) { onAbort?.(); } else { onError('タイムアウト：応答に時間がかかりすぎました。質問を短くして再送してください。'); }
+        if (userAborted) { onAbort?.(); } else { onTimeout ? onTimeout() : onError('タイムアウト：応答に時間がかかりすぎました。質問を短くして再送してください。'); }
       } else {
         onError('接続が切断されました');
       }

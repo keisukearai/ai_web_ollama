@@ -40,10 +40,12 @@ class StreamChatView(View):
             token_queue = queue.Queue()
             stop_event = threading.Event()
             response_holder = [None]  # iter_lines() を外部から close() するための参照
+            full_response_holder = ['']
+            start_holder = [time.time()]
 
             def fetch_ollama():
                 full_response = ''
-                start = time.time()
+                start = start_holder[0]
                 peak_cpu = 0.0
                 peak_memory = 0.0
                 token_count = 0
@@ -75,6 +77,7 @@ class StreamChatView(View):
                         token = data.get('message', {}).get('content', '')
                         if token:
                             full_response += token
+                            full_response_holder[0] = full_response
                             token_count += 1
                             if token_count % 10 == 0:
                                 cpu = psutil.cpu_percent(interval=None)
@@ -126,13 +129,24 @@ class StreamChatView(View):
                     try:
                         item = token_queue.get(timeout=timeout_sec + 5)
                     except Empty:
-                        # キュータイムアウト（thinking が長すぎる等）→ Ollama を停止してエラー返却
+                        # キュータイムアウト → Ollama を停止して部分レスポンスを保存
                         stop_event.set()
                         if response_holder[0] is not None:
                             try:
                                 response_holder[0].close()
                             except Exception:
                                 pass
+                        duration_ms = int((time.time() - start_holder[0]) * 1000)
+                        Conversation.objects.create(
+                            question=question,
+                            response=full_response_holder[0],
+                            model_name=model,
+                            duration_ms=duration_ms,
+                            ip_address=ip_address,
+                            cpu_percent=None,
+                            memory_percent=None,
+                            timed_out=True,
+                        )
                         yield f"data: {json.dumps({'error': 'タイムアウト：応答に時間がかかりすぎました'})}\n\n"
                         break
                     if item is None:

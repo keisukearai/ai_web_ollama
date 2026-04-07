@@ -155,6 +155,18 @@ export default function Home() {
         setLoading(false);
       },
       timeoutSec,
+      () => {
+        // タイムアウト — 部分回答を残して streaming を解除
+        cancelRef.current = null;
+        setMessages(prev => {
+          const msgs = [...prev];
+          const last = msgs[msgs.length - 1];
+          if (last?.role === 'ai') msgs[msgs.length - 1] = { ...last, streaming: false };
+          return msgs;
+        });
+        setError('タイムアウト：応答に時間がかかりすぎました');
+        setLoading(false);
+      },
     );
   }, [input, loading, model, timeoutSec]);
 
