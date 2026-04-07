@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Sun, Moon, Menu, X, Send, Square } from 'lucide-react';
+import { Sun, Moon, Menu, X, Send, AlertTriangle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { sendChatStream, fetchModels, fetchStats, Conversation, ServerStats } from '@/lib/api';
@@ -283,7 +283,7 @@ export default function Home() {
                   style={{ background: '#ef4444' }}
                   title="生成を停止"
                 >
-                  <Square size={15} />
+                  <AlertTriangle size={15} />
                   <span className="hidden sm:inline">停止</span>
                 </button>
               ) : (
