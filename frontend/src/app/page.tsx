@@ -315,7 +315,7 @@ export default function Home() {
             className="px-4 py-3 border-t flex-shrink-0"
             style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
           >
-            <div className="flex gap-1 max-w-3xl mx-auto mb-2">
+            <div className="flex items-center gap-1 max-w-3xl mx-auto mb-2">
               {(['要約', '通常', '深く'] as const).map(m => (
                 <button
                   key={m}
@@ -330,6 +330,12 @@ export default function Home() {
                   {m}
                 </button>
               ))}
+              {stats && (
+                <div className="sm:hidden ml-auto flex items-center gap-2 text-xs font-mono" style={{ color: 'var(--text-muted)' }}>
+                  <span>CPU {stats.cpu_percent.toFixed(0)}%</span>
+                  <span>MEM {stats.memory_used_gb}/{stats.memory_total_gb}GB</span>
+                </div>
+              )}
             </div>
             <div className="flex gap-2 items-end max-w-3xl mx-auto">
               <textarea
