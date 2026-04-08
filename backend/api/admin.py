@@ -1,5 +1,22 @@
 from django.contrib import admin
-from .models import Conversation
+from django.http import HttpResponseRedirect
+from .models import Conversation, SpreadsheetLink
+
+SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/17EGOmzktMKBR6kOwC2Aituy0pazAtcp1LT-1W1-q6XA/edit'
+
+@admin.register(SpreadsheetLink)
+class SpreadsheetLinkAdmin(admin.ModelAdmin):
+    def changelist_view(self, request, extra_context=None):
+        return HttpResponseRedirect(SPREADSHEET_URL)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Conversation)

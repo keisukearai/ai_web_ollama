@@ -20,3 +20,10 @@ class Conversation(models.Model):
 
     def __str__(self):
         return f"{self.created_at:%Y-%m-%d %H:%M} - {self.question[:50]}"
+
+
+class SpreadsheetLink(models.Model):
+    class Meta:
+        managed = False
+        verbose_name = 'スプレッドシート'
+        verbose_name_plural = 'スプレッドシート'
