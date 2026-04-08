@@ -25,7 +25,7 @@ from api.models import FAQ, AppConfig  # noqa: E402
 
 CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), 'backend', 'credentials', 'google_sheets.json')
 MODELFILE_PATH = os.path.join(os.path.dirname(__file__), 'Modelfile')
-CUSTOM_MODEL_NAME = 'gemma3-techbridge'
+CUSTOM_MODEL_NAME = 'qwen2.5-techbridge'
 BASE_MODEL = 'qwen2.5:1.5b'
 
 MAX_FAQ_ITEMS = 50       # Modelfileに注入する最大件数
