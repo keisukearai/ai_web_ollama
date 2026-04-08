@@ -31,16 +31,28 @@ BASE_MODEL = 'qwen2.5:1.5b'
 MAX_FAQ_ITEMS = 50       # Modelfileに注入する最大件数
 MAX_PER_CATEGORY = 6    # カテゴリごとの最大件数
 
-SYSTEM_PROMPT_HEADER = """あなたは株式会社テックブリッジ（TechBridge Inc.）の社内アシスタントAIです。
-以下のFAQデータに基づいて正確に回答してください。
-FAQに記載のない質問には「その情報は持ち合わせていません」と答えてください。
+DEFAULT_SYSTEM_PROMPT_HEADER = """あなたは株式会社テックブリッジ（TechBridge Inc.）の社内アシスタントAIです。
+以下のFAQデータに基づいて回答してください。
+FAQと完全一致しない表現でも、一般的なビジネス用語・同義語・言い換えで意味が同じであれば回答してください。
+FAQに全く関係のない質問のみ「その情報は持ち合わせていません」と答えてください。
 
 --- FAQ データ ---
 """
 
-SYSTEM_PROMPT_FOOTER = """--- FAQ データ終了 ---
+DEFAULT_SYSTEM_PROMPT_FOOTER = """--- FAQ データ終了 ---
 
 回答は簡潔かつ丁寧にしてください。"""
+
+
+def get_or_create_prompt(key, default):
+    """AppConfigからプロンプトを取得。なければデフォルト値で作成して返す"""
+    obj, created = AppConfig.objects.get_or_create(
+        key=key,
+        defaults={'value': default, 'description': 'FAQモデル用システムプロンプト（admin画面で編集可）'},
+    )
+    if created:
+        print(f'   AppConfig "{key}" をデフォルト値で作成しました')
+    return obj.value
 
 
 def fetch_from_sheet():
@@ -118,7 +130,9 @@ def generate_modelfile():
             current_category = faq.category
         faq_text += f'Q: {faq.question}\nA: {faq.answer}\n'
 
-    system_prompt = SYSTEM_PROMPT_HEADER + faq_text + SYSTEM_PROMPT_FOOTER
+    header = get_or_create_prompt('faq_system_prompt_header', DEFAULT_SYSTEM_PROMPT_HEADER)
+    footer = get_or_create_prompt('faq_system_prompt_footer', DEFAULT_SYSTEM_PROMPT_FOOTER)
+    system_prompt = header + faq_text + footer
     modelfile_content = f'FROM {BASE_MODEL}\nPARAMETER num_ctx 4096\nSYSTEM """{system_prompt}"""\n'
 
     with open(MODELFILE_PATH, 'w', encoding='utf-8') as f:
