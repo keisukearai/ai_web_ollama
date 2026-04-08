@@ -133,7 +133,7 @@ def generate_modelfile():
     header = get_or_create_prompt('faq_system_prompt_header', DEFAULT_SYSTEM_PROMPT_HEADER)
     footer = get_or_create_prompt('faq_system_prompt_footer', DEFAULT_SYSTEM_PROMPT_FOOTER)
     system_prompt = header + faq_text + footer
-    modelfile_content = f'FROM {BASE_MODEL}\nPARAMETER num_ctx 4096\nSYSTEM """{system_prompt}"""\n'
+    modelfile_content = f'FROM {BASE_MODEL}\nPARAMETER num_ctx 4096\nPARAMETER num_keep -1\nSYSTEM """{system_prompt}"""\n'
 
     with open(MODELFILE_PATH, 'w', encoding='utf-8') as f:
         f.write(modelfile_content)
