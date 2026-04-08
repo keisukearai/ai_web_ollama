@@ -8,6 +8,7 @@ import psutil
 import requests
 from django.conf import settings
 from django.http import StreamingHttpResponse
+from django.utils.timezone import localtime
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
@@ -216,7 +217,7 @@ class StreamChatView(View):
                             }))
                             # スプレッドシートに非同期で追記
                             threading.Thread(target=_append_to_sheet, args=([
-                                conv.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                                localtime(conv.created_at).strftime('%Y-%m-%d %H:%M:%S'),
                                 question,
                                 full_response,
                                 model,
