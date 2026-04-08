@@ -34,6 +34,7 @@ class FAQ(models.Model):
     question = models.TextField(verbose_name='質問')
     answer = models.TextField(verbose_name='回答')
     row_number = models.IntegerField(verbose_name='スプシ行番号')
+    embedding = models.TextField(blank=True, default='', verbose_name='埋め込みベクトル')
 
     class Meta:
         ordering = ['row_number']

@@ -21,6 +21,55 @@ psutil.cpu_percent(interval=None)
 
 CREDENTIALS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'credentials', 'google_sheets.json')
 
+FAQ_MODEL_NAME = 'qwen2.5-techbridge'
+FAQ_BASE_MODEL = 'qwen2.5:1.5b'
+EMBED_MODEL = 'nomic-embed-text'
+FAQ_TOP_K = 5
+
+
+def _cosine_similarity(a, b):
+    import math
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(x * x for x in b))
+    return dot / (norm_a * norm_b) if norm_a and norm_b else 0.0
+
+
+def _get_faq_context(question: str) -> str:
+    """質問をベクトル化し、類似FAQ上位K件でシステムプロンプトを構築する"""
+    import json
+    from .models import FAQ, AppConfig
+
+    # 質問をベクトル化
+    resp = requests.post(
+        f"{settings.OLLAMA_URL}/api/embed",
+        json={'model': EMBED_MODEL, 'input': question},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    q_vec = resp.json()['embeddings'][0]
+
+    # 全FAQとコサイン類似度を計算
+    faqs = list(FAQ.objects.exclude(embedding=''))
+    scores = []
+    for faq in faqs:
+        faq_vec = json.loads(faq.embedding)
+        score = _cosine_similarity(q_vec, faq_vec)
+        scores.append((score, faq))
+
+    scores.sort(key=lambda x: x[0], reverse=True)
+    top_faqs = [faq for _, faq in scores[:FAQ_TOP_K]]
+
+    # システムプロンプト組み立て（AppConfigから取得）
+    header = AppConfig.objects.filter(key='faq_system_prompt_header').values_list('value', flat=True).first() or \
+        'あなたは株式会社テックブリッジの社内アシスタントAIです。以下のFAQを参考に回答してください。\n\n'
+    footer = AppConfig.objects.filter(key='faq_system_prompt_footer').values_list('value', flat=True).first() or \
+        '\n回答は簡潔かつ丁寧にしてください。'
+
+    faq_text = '\n'.join(f'Q: {f.question}\nA: {f.answer}' for f in top_faqs)
+    return header + faq_text + footer
+
+
 def _get_spreadsheet_id():
     url = AppConfig.objects.filter(key='spreadsheet_url').values_list('value', flat=True).first()
     if not url:
@@ -61,6 +110,16 @@ class StreamChatView(View):
             '深く': '詳しく、多角的な視点から丁寧に説明してください。',
         }
 
+        # qwen2.5-techbridge はベクトル検索でFAQコンテキストを注入
+        actual_model = model
+        faq_system_prompt = None
+        if model == FAQ_MODEL_NAME:
+            actual_model = FAQ_BASE_MODEL
+            try:
+                faq_system_prompt = _get_faq_context(question)
+            except Exception as e:
+                faq_system_prompt = None
+
         if not question:
             def error_stream():
                 yield f"data: {json.dumps({'error': '質問を入力してください'})}\n\n"
@@ -86,16 +145,18 @@ class StreamChatView(View):
 
                 # /api/chat を使用（qwen3 の think: false が正しく効く）
                 messages = []
-                if mode in SYSTEM_MESSAGES:
+                if faq_system_prompt:
+                    messages.append({'role': 'system', 'content': faq_system_prompt})
+                elif mode in SYSTEM_MESSAGES:
                     messages.append({'role': 'system', 'content': SYSTEM_MESSAGES[mode]})
                 messages.append({'role': 'user', 'content': question})
 
                 payload = {
-                    'model': model,
+                    'model': actual_model,
                     'messages': messages,
                     'stream': True,
                 }
-                if model.startswith('qwen3'):
+                if actual_model.startswith('qwen3'):
                     payload['think'] = False
 
                 try:
@@ -263,6 +324,9 @@ class ModelListView(APIView):
             models = [m['name'] for m in resp.json().get('models', [])]
         except Exception:
             models = [settings.OLLAMA_MODEL]
+        # qwen2.5-techbridge はollamamodel不要のため常に先頭に注入
+        models = [m for m in models if m != FAQ_MODEL_NAME]
+        models.insert(0, FAQ_MODEL_NAME)
         return Response({'models': models})
 
 

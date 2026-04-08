@@ -1,19 +1,19 @@
 """
-スプレッドシートのFAQデータをDBに取り込み、Modelfileを生成して
-gemma3-techbridge カスタムモデルを作成するスクリプト。
+スプレッドシートのFAQデータをDBに取り込み、
+nomic-embed-text でベクトル埋め込みを生成してDBに保存するスクリプト。
 
 使い方:
   python sync_faq.py
 
 スプシを更新したら都度実行してください。
 """
+import json
 import os
 import sys
-import subprocess
-from collections import defaultdict
 
 import django
 import gspread
+import requests
 from google.oauth2.service_account import Credentials
 
 # Django セットアップ
@@ -21,38 +21,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
+from django.conf import settings  # noqa: E402
 from api.models import FAQ, AppConfig  # noqa: E402
 
 CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), 'backend', 'credentials', 'google_sheets.json')
-MODELFILE_PATH = os.path.join(os.path.dirname(__file__), 'Modelfile')
-CUSTOM_MODEL_NAME = 'qwen2.5-techbridge'
-BASE_MODEL = 'qwen2.5:1.5b'
-
-MAX_FAQ_ITEMS = 50       # Modelfileに注入する最大件数
-MAX_PER_CATEGORY = 6    # カテゴリごとの最大件数
-
-DEFAULT_SYSTEM_PROMPT_HEADER = """あなたは株式会社テックブリッジ（TechBridge Inc.）の社内アシスタントAIです。
-以下のFAQデータに基づいて回答してください。
-FAQと完全一致しない表現でも、一般的なビジネス用語・同義語・言い換えで意味が同じであれば回答してください。
-FAQに全く関係のない質問のみ「その情報は持ち合わせていません」と答えてください。
-
---- FAQ データ ---
-"""
-
-DEFAULT_SYSTEM_PROMPT_FOOTER = """--- FAQ データ終了 ---
-
-回答は簡潔かつ丁寧にしてください。"""
-
-
-def get_or_create_prompt(key, default):
-    """AppConfigからプロンプトを取得。なければデフォルト値で作成して返す"""
-    obj, created = AppConfig.objects.get_or_create(
-        key=key,
-        defaults={'value': default, 'description': 'FAQモデル用システムプロンプト（admin画面で編集可）'},
-    )
-    if created:
-        print(f'   AppConfig "{key}" をデフォルト値で作成しました')
-    return obj.value
+EMBED_MODEL = 'nomic-embed-text'
+OLLAMA_URL = getattr(settings, 'OLLAMA_URL', 'http://localhost:11434')
 
 
 def fetch_from_sheet():
@@ -65,17 +39,15 @@ def fetch_from_sheet():
     import re
     m = re.search(r'/spreadsheets/d/([^/]+)', url)
     if not m:
-        print('ERROR: spreadsheet_url からIDを抽出できませんでした')
+        print('ERROR: faq_spreadsheet_url からIDを抽出できませんでした')
         sys.exit(1)
-    spreadsheet_id = m.group(1)
 
     scopes = ['https://www.googleapis.com/auth/spreadsheets']
     creds = Credentials.from_service_account_file(CREDENTIALS_PATH, scopes=scopes)
     gc = gspread.authorize(creds)
-    sh = gc.open_by_key(spreadsheet_id)
+    sh = gc.open_by_key(m.group(1))
     rows = sh.sheet1.get_all_values()
 
-    # 1行目はヘッダー（カテゴリ/質問/回答）をスキップ
     data = []
     for i, row in enumerate(rows[1:], start=2):
         if len(row) >= 3 and row[0].strip() and row[1].strip() and row[2].strip():
@@ -103,55 +75,26 @@ def sync_to_db(data):
     print(f'DB更新完了: {len(data)}件')
 
 
-def select_representative_faqs():
-    """カテゴリごとに最大 MAX_PER_CATEGORY 件、合計 MAX_FAQ_ITEMS 件に絞る"""
-    category_map = defaultdict(list)
-    for faq in FAQ.objects.all():
-        category_map[faq.category].append(faq)
+def generate_embeddings():
+    """全FAQのベクトル埋め込みを生成してDBに保存"""
+    faqs = list(FAQ.objects.all())
+    print(f'   {len(faqs)}件の埋め込みを生成中...')
 
-    selected = []
-    for items in category_map.values():
-        selected.extend(items[:MAX_PER_CATEGORY])
-        if len(selected) >= MAX_FAQ_ITEMS:
-            break
+    for i, faq in enumerate(faqs, 1):
+        text = f"{faq.category} {faq.question} {faq.answer}"
+        resp = requests.post(
+            f'{OLLAMA_URL}/api/embed',
+            json={'model': EMBED_MODEL, 'input': text},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        embedding = resp.json()['embeddings'][0]
+        faq.embedding = json.dumps(embedding)
+        faq.save(update_fields=['embedding'])
+        if i % 20 == 0 or i == len(faqs):
+            print(f'   {i}/{len(faqs)}件完了')
 
-    return selected[:MAX_FAQ_ITEMS]
-
-
-def generate_modelfile():
-    """代表FAQからModelfileを生成"""
-    faqs = select_representative_faqs()
-
-    faq_text = ''
-    current_category = None
-    for faq in faqs:
-        if faq.category != current_category:
-            faq_text += f'\n【{faq.category}】\n'
-            current_category = faq.category
-        faq_text += f'Q: {faq.question}\nA: {faq.answer}\n'
-
-    header = get_or_create_prompt('faq_system_prompt_header', DEFAULT_SYSTEM_PROMPT_HEADER)
-    footer = get_or_create_prompt('faq_system_prompt_footer', DEFAULT_SYSTEM_PROMPT_FOOTER)
-    system_prompt = header + faq_text + footer
-    modelfile_content = f'FROM {BASE_MODEL}\nPARAMETER num_ctx 4096\nPARAMETER num_keep -1\nSYSTEM """{system_prompt}"""\n'
-
-    with open(MODELFILE_PATH, 'w', encoding='utf-8') as f:
-        f.write(modelfile_content)
-    print(f'Modelfile生成完了: {MODELFILE_PATH}（{len(faqs)}件使用 / 全{FAQ.objects.count()}件中）')
-
-
-def create_ollama_model():
-    """ollama create でカスタムモデルを作成"""
-    print(f'ollama create {CUSTOM_MODEL_NAME} を実行中...')
-    result = subprocess.run(
-        ['ollama', 'create', CUSTOM_MODEL_NAME, '-f', MODELFILE_PATH],
-        capture_output=False,
-    )
-    if result.returncode == 0:
-        print(f'モデル作成完了: {CUSTOM_MODEL_NAME}')
-    else:
-        print(f'ERROR: ollama create に失敗しました (code={result.returncode})')
-        sys.exit(1)
+    print(f'埋め込み生成完了: {len(faqs)}件')
 
 
 def main():
@@ -164,11 +107,8 @@ def main():
     print('② DBに取り込み中...')
     sync_to_db(data)
 
-    print('③ Modelfile生成中...')
-    generate_modelfile()
-
-    print('④ ollama create 実行中...')
-    create_ollama_model()
+    print('③ ベクトル埋め込み生成中...')
+    generate_embeddings()
 
     print('=== 完了 ===')
 
