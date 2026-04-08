@@ -9,6 +9,7 @@ class Conversation(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     cpu_percent = models.FloatField(null=True, blank=True)
     memory_percent = models.FloatField(null=True, blank=True)
+    mode = models.CharField(max_length=10, default='通常')
     timed_out = models.BooleanField(default=False)
     user_aborted = models.BooleanField(default=False)
     timeout_setting_sec = models.IntegerField(null=True, blank=True)

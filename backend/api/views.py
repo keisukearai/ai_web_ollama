@@ -115,6 +115,7 @@ class StreamChatView(View):
                                 cpu_percent=round(peak_cpu, 1),
                                 memory_percent=round(peak_memory, 1),
                                 timeout_setting_sec=timeout_sec,
+                                mode=mode,
                             )
                             token_queue.put(('done', {
                                 'done': True, 'id': conv.id,
@@ -159,6 +160,7 @@ class StreamChatView(View):
                             memory_percent=None,
                             timed_out=True,
                             timeout_setting_sec=timeout_sec,
+                            mode=mode,
                         )
                         yield f"data: {json.dumps({'error': 'タイムアウト：応答に時間がかかりすぎました'})}\n\n"
                         break
@@ -197,6 +199,7 @@ class StreamChatView(View):
                             timed_out=is_timeout,
                             user_aborted=not is_timeout,
                             timeout_setting_sec=timeout_sec,
+                            mode=mode,
                         )
                     except Exception:
                         pass
