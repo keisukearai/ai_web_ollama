@@ -1,29 +1,19 @@
 from django.contrib import admin
-from django.http import HttpResponseRedirect
-from .models import Conversation, SpreadsheetLink, AppConfig
+from django.utils.html import format_html
+from .models import Conversation, AppConfig
 
 
 @admin.register(AppConfig)
 class AppConfigAdmin(admin.ModelAdmin):
-    list_display = ['key', 'value', 'description', 'updated_at']
+    list_display = ['key', 'value_display', 'description', 'updated_at']
     search_fields = ['key', 'description']
     readonly_fields = ['updated_at']
 
-
-@admin.register(SpreadsheetLink)
-class SpreadsheetLinkAdmin(admin.ModelAdmin):
-    def changelist_view(self, request, extra_context=None):
-        url = AppConfig.objects.filter(key='spreadsheet_url').values_list('value', flat=True).first()
-        return HttpResponseRedirect(url or '/')
-
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
+    def value_display(self, obj):
+        if obj.value.startswith('http://') or obj.value.startswith('https://'):
+            return format_html('<a href="{}" target="_blank" rel="noopener noreferrer">{}</a>', obj.value, obj.value)
+        return obj.value
+    value_display.short_description = '値'
 
 
 @admin.register(Conversation)
