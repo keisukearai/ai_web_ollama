@@ -41,9 +41,9 @@ SYSTEM_PROMPT_FOOTER = """--- FAQ データ終了 ---
 
 def fetch_from_sheet():
     """スプレッドシートからFAQデータを取得する"""
-    url = AppConfig.objects.filter(key='spreadsheet_url').values_list('value', flat=True).first()
+    url = AppConfig.objects.filter(key='faq_spreadsheet_url').values_list('value', flat=True).first()
     if not url:
-        print('ERROR: AppConfig に spreadsheet_url が設定されていません')
+        print('ERROR: AppConfig に faq_spreadsheet_url が設定されていません')
         sys.exit(1)
 
     import re
