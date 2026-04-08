@@ -4,10 +4,10 @@ from .models import Conversation
 
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
-    list_display = ['id', 'question_preview', 'model_name', 'duration_sec', 'cpu_display', 'memory_display', 'ip_address', 'timeout_setting_display', 'timed_out_display', 'created_at']
-    list_filter = ['model_name', 'timed_out', 'ip_address', 'created_at']
+    list_display = ['id', 'question_preview', 'model_name', 'duration_sec', 'cpu_display', 'memory_display', 'ip_address', 'timeout_setting_display', 'status_display', 'created_at']
+    list_filter = ['model_name', 'timed_out', 'user_aborted', 'ip_address', 'created_at']
     search_fields = ['question', 'response']
-    readonly_fields = ['question', 'response', 'model_name', 'duration_ms', 'ip_address', 'cpu_percent', 'memory_percent', 'timed_out', 'timeout_setting_sec', 'created_at']
+    readonly_fields = ['question', 'response', 'model_name', 'duration_ms', 'ip_address', 'cpu_percent', 'memory_percent', 'timed_out', 'user_aborted', 'timeout_setting_sec', 'created_at']
     ordering = ['-created_at']
     list_per_page = 50
 
@@ -39,9 +39,11 @@ class ConversationAdmin(admin.ModelAdmin):
         return f'{obj.timeout_setting_sec}秒'
     timeout_setting_display.short_description = '設定時間'
 
-    def timed_out_display(self, obj):
+    def status_display(self, obj):
         from django.utils.html import format_html
         if obj.timed_out:
             return format_html('<span style="color:#dc2626;font-weight:bold;">✗</span>')
+        if obj.user_aborted:
+            return format_html('<span style="color:#ea580c;font-weight:bold;">!</span>')
         return ''
-    timed_out_display.short_description = 'TO'
+    status_display.short_description = 'ステータス'

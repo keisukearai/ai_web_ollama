@@ -181,10 +181,11 @@ class StreamChatView(View):
                         response_holder[0].close()
                     except Exception:
                         pass
-                # 経過時間が timeout_sec に近い場合はタイムアウトとして DB 保存
+                # 経過時間で手動停止とタイムアウトを判定して DB 保存
                 elapsed = time.time() - start_holder[0]
-                if elapsed >= timeout_sec - 5 and full_response_holder[0]:
+                if full_response_holder[0]:
                     try:
+                        is_timeout = elapsed >= timeout_sec - 5
                         Conversation.objects.create(
                             question=question,
                             response=full_response_holder[0],
@@ -193,7 +194,8 @@ class StreamChatView(View):
                             ip_address=ip_address,
                             cpu_percent=None,
                             memory_percent=None,
-                            timed_out=True,
+                            timed_out=is_timeout,
+                            user_aborted=not is_timeout,
                             timeout_setting_sec=timeout_sec,
                         )
                     except Exception:
