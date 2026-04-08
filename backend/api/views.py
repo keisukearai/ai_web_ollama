@@ -332,7 +332,8 @@ class ModelListView(APIView):
         except Exception:
             models = [settings.OLLAMA_MODEL]
         # 埋め込みモデルとFAQモデル名を除外してからFAQモデルを先頭に注入
-        models = [m for m in models if 'embed' not in m.lower() and m != FAQ_MODEL_NAME]
+        HIDDEN_MODELS = {FAQ_MODEL_NAME, FAQ_BASE_MODEL}
+        models = [m for m in models if 'embed' not in m.lower() and m not in HIDDEN_MODELS]
         models.insert(0, FAQ_MODEL_NAME)
         return Response({'models': models})
 
