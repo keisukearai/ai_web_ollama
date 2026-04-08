@@ -27,6 +27,13 @@ function formatDate(iso: string) {
   });
 }
 
+const MODEL_DESCRIPTIONS: Record<string, string> = {
+  'qwen2.5-techbridge': '社内FAQ専用モデル（ベクトル検索で関連FAQを抽出して回答）',
+  'qwen3:4b': '汎用モデル。日本語が得意でバランスが良い',
+  'qwen2.5-coder:7b': 'コーディング特化。プログラム作成・レビューに強い',
+  'gemma3:4b': 'Google製の汎用モデル。一般的な質問に対応',
+};
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -218,6 +225,7 @@ export default function Home() {
         <select
           value={model}
           onChange={e => setModel(e.target.value)}
+          title={MODEL_DESCRIPTIONS[model] || model}
           className="text-xs rounded-md px-2 py-1 border cursor-pointer outline-none"
           style={{ background: 'var(--surface2)', borderColor: 'var(--border)', color: 'var(--text)' }}
         >
