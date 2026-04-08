@@ -29,6 +29,21 @@ class SpreadsheetLink(models.Model):
         verbose_name_plural = 'スプレッドシート'
 
 
+class FAQ(models.Model):
+    category = models.CharField(max_length=100, verbose_name='カテゴリ')
+    question = models.TextField(verbose_name='質問')
+    answer = models.TextField(verbose_name='回答')
+    row_number = models.IntegerField(verbose_name='スプシ行番号')
+
+    class Meta:
+        ordering = ['row_number']
+        verbose_name = 'FAQ'
+        verbose_name_plural = 'FAQ'
+
+    def __str__(self):
+        return f"[{self.category}] {self.question[:50]}"
+
+
 class AppConfig(models.Model):
     key = models.CharField(max_length=100, unique=True, verbose_name='キー')
     value = models.TextField(verbose_name='値')
