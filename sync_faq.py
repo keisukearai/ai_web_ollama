@@ -101,7 +101,7 @@ def generate_modelfile():
 
     system_prompt = SYSTEM_PROMPT_HEADER + faq_text + SYSTEM_PROMPT_FOOTER
 
-    modelfile_content = f'FROM {BASE_MODEL}\nSYSTEM """{system_prompt}"""\n'
+    modelfile_content = f'FROM {BASE_MODEL}\nPARAMETER num_ctx 8192\nSYSTEM """{system_prompt}"""\n'
 
     with open(MODELFILE_PATH, 'w', encoding='utf-8') as f:
         f.write(modelfile_content)
