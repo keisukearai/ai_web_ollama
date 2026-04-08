@@ -10,6 +10,7 @@ gemma3-techbridge カスタムモデルを作成するスクリプト。
 import os
 import sys
 import subprocess
+from collections import defaultdict
 
 import django
 import gspread
@@ -25,7 +26,10 @@ from api.models import FAQ, AppConfig  # noqa: E402
 CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), 'backend', 'credentials', 'google_sheets.json')
 MODELFILE_PATH = os.path.join(os.path.dirname(__file__), 'Modelfile')
 CUSTOM_MODEL_NAME = 'gemma3-techbridge'
-BASE_MODEL = 'gemma3:4b'
+BASE_MODEL = 'qwen2.5:1.5b'
+
+MAX_FAQ_ITEMS = 50       # Modelfileに注入する最大件数
+MAX_PER_CATEGORY = 6    # カテゴリごとの最大件数
 
 SYSTEM_PROMPT_HEADER = """あなたは株式会社テックブリッジ（TechBridge Inc.）の社内アシスタントAIです。
 以下のFAQデータに基づいて正確に回答してください。
@@ -87,9 +91,24 @@ def sync_to_db(data):
     print(f'DB更新完了: {len(data)}件')
 
 
+def select_representative_faqs():
+    """カテゴリごとに最大 MAX_PER_CATEGORY 件、合計 MAX_FAQ_ITEMS 件に絞る"""
+    category_map = defaultdict(list)
+    for faq in FAQ.objects.all():
+        category_map[faq.category].append(faq)
+
+    selected = []
+    for items in category_map.values():
+        selected.extend(items[:MAX_PER_CATEGORY])
+        if len(selected) >= MAX_FAQ_ITEMS:
+            break
+
+    return selected[:MAX_FAQ_ITEMS]
+
+
 def generate_modelfile():
-    """DBのFAQデータからModelfileを生成"""
-    faqs = FAQ.objects.all()
+    """代表FAQからModelfileを生成"""
+    faqs = select_representative_faqs()
 
     faq_text = ''
     current_category = None
@@ -100,12 +119,11 @@ def generate_modelfile():
         faq_text += f'Q: {faq.question}\nA: {faq.answer}\n'
 
     system_prompt = SYSTEM_PROMPT_HEADER + faq_text + SYSTEM_PROMPT_FOOTER
-
-    modelfile_content = f'FROM {BASE_MODEL}\nPARAMETER num_ctx 8192\nSYSTEM """{system_prompt}"""\n'
+    modelfile_content = f'FROM {BASE_MODEL}\nPARAMETER num_ctx 4096\nSYSTEM """{system_prompt}"""\n'
 
     with open(MODELFILE_PATH, 'w', encoding='utf-8') as f:
         f.write(modelfile_content)
-    print(f'Modelfile生成完了: {MODELFILE_PATH}')
+    print(f'Modelfile生成完了: {MODELFILE_PATH}（{len(faqs)}件使用 / 全{FAQ.objects.count()}件中）')
 
 
 def create_ollama_model():
