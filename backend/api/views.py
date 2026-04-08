@@ -331,8 +331,8 @@ class ModelListView(APIView):
             models = [m['name'] for m in resp.json().get('models', [])]
         except Exception:
             models = [settings.OLLAMA_MODEL]
-        # qwen2.5-techbridge はollamamodel不要のため常に先頭に注入
-        models = [m for m in models if m != FAQ_MODEL_NAME]
+        # 埋め込みモデルとFAQモデル名を除外してからFAQモデルを先頭に注入
+        models = [m for m in models if 'embed' not in m.lower() and m != FAQ_MODEL_NAME]
         models.insert(0, FAQ_MODEL_NAME)
         return Response({'models': models})
 
