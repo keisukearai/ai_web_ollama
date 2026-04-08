@@ -1,4 +1,5 @@
 import json
+import os
 import queue
 from queue import Empty
 import threading
@@ -17,6 +18,22 @@ from .serializers import ConversationSerializer
 
 # psutil の cpu_percent は初回呼び出しが 0.0 を返すため、起動時に捨て呼び
 psutil.cpu_percent(interval=None)
+
+SPREADSHEET_ID = '17EGOmzktMKBR6kOwC2Aituy0pazAtcp1LT-1W1-q6XA'
+CREDENTIALS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'credentials', 'google_sheets.json')
+
+def _append_to_sheet(row: list):
+    """スプレッドシートに1行追記（失敗しても例外を外に出さない）"""
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials
+        scopes = ['https://www.googleapis.com/auth/spreadsheets']
+        creds = Credentials.from_service_account_file(CREDENTIALS_PATH, scopes=scopes)
+        gc = gspread.authorize(creds)
+        sh = gc.open_by_key(SPREADSHEET_ID)
+        sh.sheet1.append_row(row, value_input_option='USER_ENTERED')
+    except Exception:
+        pass
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -125,6 +142,16 @@ class StreamChatView(View):
                                 'cpu_percent': conv.cpu_percent,
                                 'memory_percent': conv.memory_percent,
                             }))
+                            # スプレッドシートに非同期で追記
+                            threading.Thread(target=_append_to_sheet, args=([
+                                conv.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                                question,
+                                full_response,
+                                model,
+                                mode,
+                                f'{duration_ms / 1000:.1f}',
+                                '完了',
+                            ],), daemon=True).start()
                             return
                 except requests.exceptions.Timeout:
                     token_queue.put(('error', 'AIの応答がタイムアウトしました'))
