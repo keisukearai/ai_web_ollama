@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Sun, Moon, Menu, X, Send, AlertTriangle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { sendChatStream, fetchModels, fetchStats, Conversation, ServerStats } from '@/lib/api';
+import { sendChatStream, fetchModels, fetchStats, Conversation, ServerStats, HistoryMessage } from '@/lib/api';
 
 type Message = {
   role: 'user' | 'ai';
@@ -108,9 +108,15 @@ export default function Home() {
       { role: 'ai', content: '', streaming: true },
     ]);
 
+    // 直近5往復（10メッセージ）を履歴として渡す
+    const history: HistoryMessage[] = messages
+      .filter(m => !m.streaming && m.content)
+      .slice(-10)
+      .map(m => ({ role: m.role, content: m.content }));
+
     let accumulated = '';
     cancelRef.current = sendChatStream(
-      q, model, mode,
+      q, model, mode, history,
       (token) => {
         accumulated += token;
         setMessages(prev => {

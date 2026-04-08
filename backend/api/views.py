@@ -105,6 +105,7 @@ class StreamChatView(View):
         model = body.get('model', settings.OLLAMA_MODEL)
         timeout_sec = int(body.get('timeout', 120))
         mode = body.get('mode', '通常')
+        history = body.get('history', [])[-10:]  # 最大10メッセージ
 
         SYSTEM_MESSAGES = {
             '要約': '回答は簡潔にまとめ、100〜150文字程度で答えてください。',
@@ -150,6 +151,11 @@ class StreamChatView(View):
                     messages.append({'role': 'system', 'content': faq_system_prompt})
                 elif mode in SYSTEM_MESSAGES:
                     messages.append({'role': 'system', 'content': SYSTEM_MESSAGES[mode]})
+                for h in history:
+                    role = 'assistant' if h.get('role') == 'ai' else 'user'
+                    content = h.get('content', '').strip()
+                    if content:
+                        messages.append({'role': role, 'content': content})
                 messages.append({'role': 'user', 'content': question})
 
                 payload = {
