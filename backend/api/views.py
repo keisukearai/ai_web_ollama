@@ -13,24 +13,35 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Conversation
+from .models import Conversation, AppConfig
 from .serializers import ConversationSerializer
 
 # psutil の cpu_percent は初回呼び出しが 0.0 を返すため、起動時に捨て呼び
 psutil.cpu_percent(interval=None)
 
-SPREADSHEET_ID = '17EGOmzktMKBR6kOwC2Aituy0pazAtcp1LT-1W1-q6XA'
 CREDENTIALS_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'credentials', 'google_sheets.json')
+
+def _get_spreadsheet_id():
+    url = AppConfig.objects.filter(key='spreadsheet_url').values_list('value', flat=True).first()
+    if not url:
+        return None
+    # URL から ID を抽出: /spreadsheets/d/{ID}/
+    import re
+    m = re.search(r'/spreadsheets/d/([^/]+)', url)
+    return m.group(1) if m else None
 
 def _append_to_sheet(row: list):
     """スプレッドシートに1行追記（失敗しても例外を外に出さない）"""
     try:
+        spreadsheet_id = _get_spreadsheet_id()
+        if not spreadsheet_id:
+            return
         import gspread
         from google.oauth2.service_account import Credentials
         scopes = ['https://www.googleapis.com/auth/spreadsheets']
         creds = Credentials.from_service_account_file(CREDENTIALS_PATH, scopes=scopes)
         gc = gspread.authorize(creds)
-        sh = gc.open_by_key(SPREADSHEET_ID)
+        sh = gc.open_by_key(spreadsheet_id)
         sh.sheet1.append_row(row, value_input_option='USER_ENTERED')
     except Exception:
         pass

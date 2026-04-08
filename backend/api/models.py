@@ -27,3 +27,17 @@ class SpreadsheetLink(models.Model):
         managed = False
         verbose_name = 'スプレッドシート'
         verbose_name_plural = 'スプレッドシート'
+
+
+class AppConfig(models.Model):
+    key = models.CharField(max_length=100, unique=True, verbose_name='キー')
+    value = models.TextField(verbose_name='値')
+    description = models.CharField(max_length=200, blank=True, verbose_name='説明')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新日時')
+
+    class Meta:
+        verbose_name = '設定'
+        verbose_name_plural = '設定'
+
+    def __str__(self):
+        return self.key

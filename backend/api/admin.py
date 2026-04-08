@@ -1,13 +1,20 @@
 from django.contrib import admin
 from django.http import HttpResponseRedirect
-from .models import Conversation, SpreadsheetLink
+from .models import Conversation, SpreadsheetLink, AppConfig
 
-SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/17EGOmzktMKBR6kOwC2Aituy0pazAtcp1LT-1W1-q6XA/edit'
+
+@admin.register(AppConfig)
+class AppConfigAdmin(admin.ModelAdmin):
+    list_display = ['key', 'value', 'description', 'updated_at']
+    search_fields = ['key', 'description']
+    readonly_fields = ['updated_at']
+
 
 @admin.register(SpreadsheetLink)
 class SpreadsheetLinkAdmin(admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
-        return HttpResponseRedirect(SPREADSHEET_URL)
+        url = AppConfig.objects.filter(key='spreadsheet_url').values_list('value', flat=True).first()
+        return HttpResponseRedirect(url or '/')
 
     def has_add_permission(self, request):
         return False
