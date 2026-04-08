@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Conversation, AppConfig
+from .models import Conversation, AppConfig, FAQ
 
 
 @admin.register(AppConfig)
@@ -14,6 +14,15 @@ class AppConfigAdmin(admin.ModelAdmin):
             return format_html('<a href="{}" target="_blank" rel="noopener noreferrer">{}</a>', obj.value, obj.value)
         return obj.value
     value_display.short_description = '値'
+
+
+@admin.register(FAQ)
+class FAQAdmin(admin.ModelAdmin):
+    list_display = ['row_number', 'category', 'question', 'answer']
+    list_filter = ['category']
+    search_fields = ['question', 'answer']
+    ordering = ['row_number']
+    list_per_page = 50
 
 
 @admin.register(Conversation)
