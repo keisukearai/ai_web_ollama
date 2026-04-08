@@ -10,6 +10,7 @@ class Conversation(models.Model):
     cpu_percent = models.FloatField(null=True, blank=True)
     memory_percent = models.FloatField(null=True, blank=True)
     timed_out = models.BooleanField(default=False)
+    timeout_setting_sec = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

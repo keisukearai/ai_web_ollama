@@ -4,10 +4,10 @@ from .models import Conversation
 
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
-    list_display = ['id', 'question_preview', 'model_name', 'duration_sec', 'cpu_display', 'memory_display', 'ip_address', 'timed_out_display', 'created_at']
+    list_display = ['id', 'question_preview', 'model_name', 'duration_sec', 'cpu_display', 'memory_display', 'ip_address', 'timeout_setting_sec', 'timed_out_display', 'created_at']
     list_filter = ['model_name', 'timed_out', 'ip_address', 'created_at']
     search_fields = ['question', 'response']
-    readonly_fields = ['question', 'response', 'model_name', 'duration_ms', 'ip_address', 'cpu_percent', 'memory_percent', 'timed_out', 'created_at']
+    readonly_fields = ['question', 'response', 'model_name', 'duration_ms', 'ip_address', 'cpu_percent', 'memory_percent', 'timed_out', 'timeout_setting_sec', 'created_at']
     ordering = ['-created_at']
     list_per_page = 50
 
