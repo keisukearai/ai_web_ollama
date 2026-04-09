@@ -85,3 +85,42 @@
 - フォントサイズ: モバイルで `textarea` / `input` / `select` を `16px` に設定し、iOS/Android の自動ズームを防止
 
 **変更ファイル:** `frontend/src/app/page.tsx`, `frontend/src/app/globals.css`
+
+---
+
+# 変更履歴 2026-04-09
+
+## 1. FAQ回答品質の自動テスト追加
+
+- `test_faq_questions.json`: テストケース定義（15件）
+- `test_faq_quality.py`: SSE APIを叩いて全テスト実行・結果をコンソール＆JSONファイルに出力・スプシに書き出し
+- テスト結果スプシ: `1NOrZGflQbD2DU24VLzGriiW_SfNjXjY5P5kJdn9aVMM`
+- 実行: `TEST_BASE_URL=https://ai.kotoragk.com python test_faq_quality.py`
+
+**追加ファイル:** `test_faq_questions.json`, `test_faq_quality.py`
+
+---
+
+## 2. FAQシステムプロンプト（footer）の強化
+
+- 変更前: `回答は簡潔かつ丁寧にしてください。`
+- 変更後: FAQにない情報を補完しない・URLや固有名詞はFAQに明記されたもののみ使用する旨を明示
+- DBの `AppConfig`（key=`faq_system_prompt_footer`）を直接更新（views.py のデフォルトより優先）
+- data migration（`0012_update_faq_system_prompt_footer.py`）で恒久化
+
+**変更ファイル:** `backend/api/views.py`
+**マイグレーション:** `backend/api/migrations/0012_update_faq_system_prompt_footer.py`
+
+---
+
+## 3. FAQハイブリッド検索（search_keywords）の実装
+
+- `FAQ` モデルに `search_keywords` フィールド追加（カンマ区切り）
+- 検索ロジック: キーワードマッチしたFAQをベクトル検索結果の先頭に追加
+- **背景**: `nomic-embed-text` が「会社の電話番号」などの質問を会社概要系FAQに寄せてしまいベクトル検索でヒットしない問題への根本対策
+- スプシD列（`search_keywords`）で管理 → `sync_faq.py` でDB同期
+- **正しい更新手順: スプシD列を編集 → `python sync_faq.py`**
+
+**変更ファイル:** `backend/api/models.py`, `backend/api/views.py`, `sync_faq.py`
+**追加ファイル:** `export_keywords_to_sheet.py`（DB→スプシの逆方向同期、通常運用では不使用）
+**マイグレーション:** `backend/api/migrations/0013_faq_search_keywords.py`
