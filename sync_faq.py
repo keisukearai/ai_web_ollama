@@ -68,25 +68,86 @@ def fetch_from_sheet():
 
 
 def sync_to_db(data):
-    """DBのFAQテーブルを洗い替え"""
-    FAQ.objects.all().delete()
-    FAQ.objects.bulk_create([
-        FAQ(
+    """スプシとDBを差分比較して追加・更新・削除する。戻り値: 変更があったFAQのIDセット"""
+    sheet_by_row = {d['row_number']: d for d in data}
+    db_by_row = {faq.row_number: faq for faq in FAQ.objects.all()}
+
+    sheet_rows = set(sheet_by_row)
+    db_rows = set(db_by_row)
+
+    to_delete = db_rows - sheet_rows
+    to_add = sheet_rows - db_rows
+    to_check = sheet_rows & db_rows
+
+    changed_ids = set()
+
+    # 削除
+    if to_delete:
+        FAQ.objects.filter(row_number__in=to_delete).delete()
+        print(f'   削除: {len(to_delete)}件')
+
+    # 新規追加
+    new_faqs = []
+    for row_num in to_add:
+        d = sheet_by_row[row_num]
+        new_faqs.append(FAQ(
             category=d['category'],
             question=d['question'],
             answer=d['answer'],
             row_number=d['row_number'],
             search_keywords=d.get('search_keywords', ''),
-        )
-        for d in data
-    ])
-    print(f'DB更新完了: {len(data)}件')
+        ))
+    if new_faqs:
+        created = FAQ.objects.bulk_create(new_faqs)
+        changed_ids.update(f.id for f in created)
+        print(f'   追加: {len(new_faqs)}件')
+
+    # 更新（内容が変わったもの）
+    updated = 0
+    for row_num in to_check:
+        d = sheet_by_row[row_num]
+        faq = db_by_row[row_num]
+        fields = []
+        if faq.category != d['category']:
+            faq.category = d['category']
+            fields.append('category')
+        if faq.question != d['question']:
+            faq.question = d['question']
+            fields.append('question')
+        if faq.answer != d['answer']:
+            faq.answer = d['answer']
+            fields.append('answer')
+        # スプシD列が空でない場合は上書き
+        sheet_kw = d.get('search_keywords', '')
+        if sheet_kw and faq.search_keywords != sheet_kw:
+            faq.search_keywords = sheet_kw
+            fields.append('search_keywords')
+        if fields:
+            faq.save(update_fields=fields)
+            changed_ids.add(faq.id)
+            updated += 1
+
+    if updated:
+        print(f'   更新: {updated}件')
+
+    no_change = len(to_check) - updated
+    print(f'   変更なし: {no_change}件（スキップ）')
+    print(f'DB差分更新完了: 合計{len(data)}件')
+    return changed_ids
 
 
-def generate_embeddings():
-    """全FAQのベクトル埋め込みを生成してDBに保存"""
-    faqs = list(FAQ.objects.all())
-    print(f'   {len(faqs)}件の埋め込みを生成中...')
+def generate_embeddings(changed_ids=None):
+    """FAQのベクトル埋め込みを生成してDBに保存。changed_ids指定時は対象を絞る"""
+    if changed_ids is not None:
+        faqs = list(FAQ.objects.filter(id__in=changed_ids))
+        print(f'   {len(faqs)}件の埋め込みを生成中（差分）...')
+    else:
+        faqs = list(FAQ.objects.all())
+        print(f'   {len(faqs)}件の埋め込みを生成中...')
+
+    if not faqs:
+        print('   埋め込み生成対象なし')
+        return
 
     for i, faq in enumerate(faqs, 1):
         text = f"{faq.category} {faq.question} {faq.answer}"
@@ -139,9 +200,13 @@ def generate_keywords_with_llm(question: str, answer: str) -> str:
         return ''
 
 
-def generate_auto_keywords():
-    """search_keywords が空のFAQにLLMでキーワードを自動生成する"""
-    targets = list(FAQ.objects.filter(search_keywords=''))
+def generate_auto_keywords(changed_ids=None):
+    """search_keywords が空のFAQにLLMでキーワードを自動生成する。changed_ids指定時は対象を絞る"""
+    if changed_ids is not None:
+        targets = list(FAQ.objects.filter(id__in=changed_ids, search_keywords=''))
+    else:
+        targets = list(FAQ.objects.filter(search_keywords=''))
+
     if not targets:
         print('   自動生成対象なし（全件にキーワードあり）')
         return
@@ -167,14 +232,19 @@ def main():
     data = fetch_from_sheet()
     print(f'   {len(data)}件取得')
 
-    print('② DBに取り込み中...')
-    sync_to_db(data)
+    print('② DBに差分取り込み中...')
+    changed_ids = sync_to_db(data)
 
-    print('③ ベクトル埋め込み生成中...')
-    generate_embeddings()
+    if not changed_ids:
+        print('変更なし。処理を終了します。')
+        print('=== 完了 ===')
+        return
 
-    print('④ search_keywords 自動生成中（スプシD列が空のFAQのみ）...')
-    generate_auto_keywords()
+    print(f'③ ベクトル埋め込み生成中（変更{len(changed_ids)}件のみ）...')
+    generate_embeddings(changed_ids)
+
+    print('④ search_keywords 自動生成中（変更分でスプシD列が空のFAQのみ）...')
+    generate_auto_keywords(changed_ids)
 
     print('=== 完了 ===')
 
