@@ -37,6 +37,41 @@ def _cosine_similarity(a, b):
     return dot / (norm_a * norm_b) if norm_a and norm_b else 0.0
 
 
+def _extract_keywords(text: str) -> list[str]:
+    """日本語テキストを助詞・記号で分割し、2文字以上の語を返す"""
+    import re
+    # 助詞・助動詞・句読点・記号で分割
+    chunks = re.split(r'[のはがをにでとからまでへもやかなねよってをしてください？！。、「」【】（）()　\s]+', text)
+    return [c for c in chunks if len(c) >= 2]
+
+
+def _text_search_faqs(question: str, exclude_ids: set, top_n: int = 3):
+    """質問を語に分割してFAQ質問文・回答文をicontains検索し、マッチ数上位top_n件を返す"""
+    from django.db.models import Q
+    from .models import FAQ
+
+    keywords = _extract_keywords(question)
+    if not keywords:
+        return []
+
+    # 各FAQに対してマッチした語数をカウント
+    faq_scores: dict[int, int] = {}
+    for kw in keywords:
+        matched = FAQ.objects.filter(
+            Q(question__icontains=kw) | Q(answer__icontains=kw)
+        ).exclude(id__in=exclude_ids)
+        for faq in matched:
+            faq_scores[faq.id] = faq_scores.get(faq.id, 0) + 1
+
+    if not faq_scores:
+        return []
+
+    # マッチ数で降順ソートして上位top_n件を取得
+    top_ids = sorted(faq_scores, key=lambda x: faq_scores[x], reverse=True)[:top_n]
+    faqs_by_id = {f.id: f for f in FAQ.objects.filter(id__in=top_ids)}
+    return [faqs_by_id[i] for i in top_ids if i in faqs_by_id]
+
+
 def _get_faq_context(question: str) -> str:
     """質問をベクトル化し、類似FAQ上位K件でシステムプロンプトを構築する"""
     import json
@@ -51,7 +86,7 @@ def _get_faq_context(question: str) -> str:
     resp.raise_for_status()
     q_vec = resp.json()['embeddings'][0]
 
-    # キーワードマッチ（search_keywords が質問に含まれるFAQを優先収集）
+    # ① キーワードマッチ（search_keywords が質問に含まれるFAQを優先収集）
     keyword_faqs = []
     for faq in FAQ.objects.exclude(search_keywords=''):
         for kw in faq.search_keywords.split(','):
@@ -60,9 +95,13 @@ def _get_faq_context(question: str) -> str:
                 keyword_faqs.append(faq)
                 break
 
-    # ベクトル検索（キーワードマッチ済みを除外してTOP_K件取得）
-    keyword_ids = {f.id for f in keyword_faqs}
-    faqs = list(FAQ.objects.exclude(embedding='').exclude(id__in=keyword_ids))
+    # ② テキスト検索（質問を語分割してFAQ全件をicontains検索、マッチ数上位3件）
+    existing_ids = {f.id for f in keyword_faqs}
+    text_faqs = _text_search_faqs(question, exclude_ids=existing_ids, top_n=3)
+
+    # ③ ベクトル検索（①②済みを除外してTOP_K件取得）
+    existing_ids |= {f.id for f in text_faqs}
+    faqs = list(FAQ.objects.exclude(embedding='').exclude(id__in=existing_ids))
     scores = []
     for faq in faqs:
         faq_vec = json.loads(faq.embedding)
@@ -72,8 +111,8 @@ def _get_faq_context(question: str) -> str:
     scores.sort(key=lambda x: x[0], reverse=True)
     vector_faqs = [faq for score, faq in scores[:FAQ_TOP_K] if score >= FAQ_MIN_SIMILARITY]
 
-    # キーワードマッチを先頭に、ベクトル検索を後に結合
-    top_faqs = keyword_faqs + vector_faqs
+    # ①キーワードマッチ → ②テキスト検索 → ③ベクトル検索 の順で結合
+    top_faqs = keyword_faqs + text_faqs + vector_faqs
 
     # システムプロンプト組み立て（AppConfigから取得）
     header = AppConfig.objects.filter(key='faq_system_prompt_header').values_list('value', flat=True).first() or \
