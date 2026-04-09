@@ -3,6 +3,24 @@ from django.utils.html import format_html
 from .models import Conversation, AppConfig, FAQ
 
 
+class HasKeywordsFilter(admin.SimpleListFilter):
+    title = 'キーワード'
+    parameter_name = 'has_keywords'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('yes', 'あり'),
+            ('no', 'なし'),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            return queryset.exclude(search_keywords='')
+        if self.value() == 'no':
+            return queryset.filter(search_keywords='')
+        return queryset
+
+
 @admin.register(AppConfig)
 class AppConfigAdmin(admin.ModelAdmin):
     list_display = ['key', 'value_display', 'description', 'updated_at']
@@ -20,7 +38,7 @@ class AppConfigAdmin(admin.ModelAdmin):
 class FAQAdmin(admin.ModelAdmin):
     list_display = ['row_number', 'category', 'question', 'answer', 'search_keywords']
     list_display_links = ['row_number', 'question']
-    list_filter = ['category']
+    list_filter = ['category', HasKeywordsFilter]
     search_fields = ['question', 'answer', 'search_keywords']
     ordering = ['row_number']
     list_per_page = 50
