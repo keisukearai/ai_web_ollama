@@ -2,30 +2,30 @@
   {
     "id": "tc001",
     "question": "有給休暇の申請方法を教えてください",
-    "expected_keywords": [],
+    "expected_keywords": ["有給"],
     "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
     "note": "FAQにあるはずの基本的な問い合わせ"
   },
   {
     "id": "tc002",
     "question": "テックブリッジの設立年はいつですか？",
-    "expected_keywords": [],
+    "expected_keywords": ["2018年"],
     "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
-    "note": "会社基本情報"
+    "note": "会社基本情報（設立日：2018年7月12日）"
   },
   {
     "id": "tc003",
     "question": "経費精算の締め日はいつですか？",
-    "expected_keywords": [],
+    "expected_keywords": ["末日"],
     "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
-    "note": "社内手続き系FAQ"
+    "note": "社内手続き系FAQ（毎月末日締め、翌月15日払い）"
   },
   {
     "id": "tc004",
     "question": "リモートワークのルールを教えてください",
-    "expected_keywords": [],
+    "expected_keywords": ["週3日"],
     "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
-    "note": "働き方・制度系FAQ"
+    "note": "働き方・制度系FAQ（週3日まで）"
   },
   {
     "id": "tc005",
@@ -38,23 +38,23 @@
   {
     "id": "tc006",
     "question": "給与の支払日はいつですか？",
-    "expected_keywords": [],
+    "expected_keywords": ["25日"],
     "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
-    "note": "給与・待遇系FAQ"
+    "note": "給与振込日はFAQに記載あり（毎月25日）"
   },
   {
     "id": "tc007",
     "question": "社内Slackのチャンネル一覧はどこで確認できますか？",
-    "expected_keywords": [],
+    "expected_keywords": ["Slack"],
     "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
     "note": "社内ツール系FAQ"
   },
   {
     "id": "tc008",
     "question": "入社手続きに必要な書類を教えてください",
-    "expected_keywords": [],
+    "expected_keywords": ["身分証"],
     "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
-    "note": "人事・入社系FAQ"
+    "note": "人事・入社系FAQ（身分証明書・銀行口座情報・印鑑など）"
   },
   {
     "id": "tc009",
@@ -68,7 +68,43 @@
     "id": "tc010",
     "question": "健康保険証はいつ届きますか？",
     "expected_keywords": [],
+    "ng_patterns": [],
+    "expect_unknown": true,
+    "note": "FAQデータに健康保険証の発送時期の記載なし → 範囲外と伝える回答が正解"
+  },
+  {
+    "id": "tc011",
+    "question": "会社の住所はどこですか？",
+    "expected_keywords": ["赤坂"],
     "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
-    "note": "社会保険・入社手続き系FAQ"
+    "note": "企業情報：所在地（東京都港区赤坂3丁目7-8）"
+  },
+  {
+    "id": "tc012",
+    "question": "代表者（社長）の名前を教えてください",
+    "expected_keywords": ["中村"],
+    "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
+    "note": "企業情報：代表者名（中村 誠一郎）"
+  },
+  {
+    "id": "tc013",
+    "question": "会社の電話番号を教えてください",
+    "expected_keywords": ["03-1234-5678"],
+    "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
+    "note": "企業情報：電話番号（FAQに記載あり）"
+  },
+  {
+    "id": "tc014",
+    "question": "資本金はいくらですか？",
+    "expected_keywords": ["5,000万"],
+    "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
+    "note": "企業情報：資本金（5,000万円）"
+  },
+  {
+    "id": "tc015",
+    "question": "従業員数は何人ですか？",
+    "expected_keywords": ["87"],
+    "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
+    "note": "企業情報：従業員数（87名）"
   }
 ]
