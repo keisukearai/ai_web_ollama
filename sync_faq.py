@@ -56,6 +56,7 @@ def fetch_from_sheet():
                 'category': row[0].strip(),
                 'question': row[1].strip(),
                 'answer': row[2].strip(),
+                'search_keywords': row[3].strip() if len(row) >= 4 else '',
             })
     return data
 
@@ -69,6 +70,7 @@ def sync_to_db(data):
             question=d['question'],
             answer=d['answer'],
             row_number=d['row_number'],
+            search_keywords=d.get('search_keywords', ''),
         )
         for d in data
     ])

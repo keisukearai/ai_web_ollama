@@ -50,8 +50,18 @@ def _get_faq_context(question: str) -> str:
     resp.raise_for_status()
     q_vec = resp.json()['embeddings'][0]
 
-    # 全FAQとコサイン類似度を計算
-    faqs = list(FAQ.objects.exclude(embedding=''))
+    # キーワードマッチ（search_keywords が質問に含まれるFAQを優先収集）
+    keyword_faqs = []
+    for faq in FAQ.objects.exclude(search_keywords=''):
+        for kw in faq.search_keywords.split(','):
+            kw = kw.strip()
+            if kw and kw in question:
+                keyword_faqs.append(faq)
+                break
+
+    # ベクトル検索（キーワードマッチ済みを除外してTOP_K件取得）
+    keyword_ids = {f.id for f in keyword_faqs}
+    faqs = list(FAQ.objects.exclude(embedding='').exclude(id__in=keyword_ids))
     scores = []
     for faq in faqs:
         faq_vec = json.loads(faq.embedding)
@@ -59,7 +69,10 @@ def _get_faq_context(question: str) -> str:
         scores.append((score, faq))
 
     scores.sort(key=lambda x: x[0], reverse=True)
-    top_faqs = [faq for _, faq in scores[:FAQ_TOP_K]]
+    vector_faqs = [faq for _, faq in scores[:FAQ_TOP_K]]
+
+    # キーワードマッチを先頭に、ベクトル検索を後に結合
+    top_faqs = keyword_faqs + vector_faqs
 
     # システムプロンプト組み立て（AppConfigから取得）
     header = AppConfig.objects.filter(key='faq_system_prompt_header').values_list('value', flat=True).first() or \
