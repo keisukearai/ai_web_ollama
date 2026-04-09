@@ -105,14 +105,18 @@ def generate_embeddings():
     print(f'埋め込み生成完了: {len(faqs)}件')
 
 
+# キーワードとして使わない汎用語
+_GENERIC_WORDS = {'会社', 'テックブリッジ', 'TechBridge', 'する', 'ある', 'ない', 'もの', 'こと', 'ため', 'お願い'}
+
+
 def generate_keywords_with_llm(question: str, answer: str) -> str:
     """LLMを使ってFAQの検索キーワードを自動生成する"""
     prompt = (
-        f"以下のFAQについて、ユーザーが検索で使いそうな日本語キーワードをカンマ区切りで5〜8個出力してください。\n"
-        f"キーワードのみ出力し、説明や前置きは不要です。\n\n"
+        f"以下のFAQについて、ユーザーが検索で使いそうな日本語キーワードを3個だけカンマ区切りで出力してください。\n"
+        f"キーワードのみ出力し、説明・番号・記号は不要です。\n\n"
         f"Q: {question}\n"
         f"A: {answer}\n\n"
-        f"キーワード:"
+        f"キーワード（3個）:"
     )
     try:
         resp = requests.post(
@@ -121,10 +125,15 @@ def generate_keywords_with_llm(question: str, answer: str) -> str:
             timeout=30,
         )
         resp.raise_for_status()
-        keywords = resp.json().get('response', '').strip()
-        # 余分な改行・説明文を除去して最初の行だけ使う
-        keywords = keywords.split('\n')[0].strip()
-        return keywords
+        raw = resp.json().get('response', '').strip()
+        # 最初の行だけ使い、カンマで分割して3個に制限
+        first_line = raw.split('\n')[0].strip()
+        parts = [kw.strip() for kw in first_line.split(',')]
+        # 汎用語・長すぎるもの・空文字を除去
+        parts = [kw for kw in parts if kw and kw not in _GENERIC_WORDS and len(kw) <= 10]
+        # 最大3個
+        parts = parts[:3]
+        return ','.join(parts)
     except Exception as e:
         print(f'   警告: キーワード生成失敗 ({e})')
         return ''
