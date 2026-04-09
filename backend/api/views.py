@@ -339,6 +339,7 @@ class HistoryView(APIView):
 
 class ModelListView(APIView):
     def get(self, request):
+        from .models import AppConfig
         try:
             resp = requests.get(f"{settings.OLLAMA_URL}/api/tags", timeout=5)
             resp.raise_for_status()
@@ -349,7 +350,18 @@ class ModelListView(APIView):
         HIDDEN_MODELS = {FAQ_MODEL_NAME, FAQ_BASE_MODEL}
         models = [m for m in models if 'embed' not in m.lower() and m not in HIDDEN_MODELS]
         models.insert(0, FAQ_MODEL_NAME)
-        return Response({'models': models})
+
+        # AppConfig からデフォルト値を取得
+        default_model = AppConfig.objects.filter(key='default_model').values_list('value', flat=True).first() or models[0]
+        if default_model not in models:
+            default_model = models[0]
+        default_timeout_sec = int(AppConfig.objects.filter(key='default_timeout_sec').values_list('value', flat=True).first() or 120)
+
+        return Response({
+            'models': models,
+            'default_model': default_model,
+            'default_timeout_sec': default_timeout_sec,
+        })
 
 
 class StatsView(APIView):

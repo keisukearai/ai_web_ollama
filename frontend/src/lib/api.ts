@@ -110,11 +110,21 @@ export async function fetchHistory(limit = 50): Promise<Conversation[]> {
   return res.json();
 }
 
-export async function fetchModels(): Promise<string[]> {
+export interface ModelsConfig {
+  models: string[];
+  defaultModel: string;
+  defaultTimeoutSec: number;
+}
+
+export async function fetchModels(): Promise<ModelsConfig> {
   const res = await fetch(`${BASE}/models/`);
-  if (!res.ok) return ['gemma3:4b'];
+  if (!res.ok) return { models: ['gemma3:4b'], defaultModel: 'gemma3:4b', defaultTimeoutSec: 120 };
   const data = await res.json();
-  return data.models ?? ['gemma3:4b'];
+  return {
+    models: data.models ?? ['gemma3:4b'],
+    defaultModel: data.default_model ?? data.models?.[0] ?? 'gemma3:4b',
+    defaultTimeoutSec: data.default_timeout_sec ?? 120,
+  };
 }
 
 export async function fetchStats(): Promise<ServerStats | null> {

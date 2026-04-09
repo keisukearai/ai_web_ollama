@@ -39,13 +39,13 @@ export default function Home() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [model, setModel] = useState('gemma3:4b');
-  const [models, setModels] = useState<string[]>(['gemma3:4b']);
+  const [model, setModel] = useState('');
+  const [models, setModels] = useState<string[]>([]);
   const [history, setHistory] = useState<Conversation[]>([]);
   const [isDark, setIsDark] = useState(true);
   const [stats, setStats] = useState<ServerStats | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [timeoutSec, setTimeoutSec] = useState(120);
+  const [timeoutSec, setTimeoutSec] = useState(60);
   const [mode, setMode] = useState<'要約' | '通常' | '深く'>('通常');
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -62,7 +62,14 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    fetchModels().then(setModels).catch(() => {});
+    fetchModels().then(({ models, defaultModel, defaultTimeoutSec }) => {
+      setModels(models);
+      setModel(defaultModel);
+      setTimeoutSec(defaultTimeoutSec);
+    }).catch(() => {
+      setModels(['gemma3:4b']);
+      setModel('gemma3:4b');
+    });
   }, []);
 
   useEffect(() => {
