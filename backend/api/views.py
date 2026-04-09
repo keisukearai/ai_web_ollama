@@ -26,6 +26,7 @@ FAQ_MODEL_NAME = 'qwen2.5-techbridge'
 FAQ_BASE_MODEL = 'qwen2.5:1.5b'
 EMBED_MODEL = 'nomic-embed-text'
 FAQ_TOP_K = 5
+FAQ_MIN_SIMILARITY = 0.75  # これ以下のFAQはコンテキストに注入しない
 
 
 def _cosine_similarity(a, b):
@@ -69,7 +70,7 @@ def _get_faq_context(question: str) -> str:
         scores.append((score, faq))
 
     scores.sort(key=lambda x: x[0], reverse=True)
-    vector_faqs = [faq for _, faq in scores[:FAQ_TOP_K]]
+    vector_faqs = [faq for score, faq in scores[:FAQ_TOP_K] if score >= FAQ_MIN_SIMILARITY]
 
     # キーワードマッチを先頭に、ベクトル検索を後に結合
     top_faqs = keyword_faqs + vector_faqs
