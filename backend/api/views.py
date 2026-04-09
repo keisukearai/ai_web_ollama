@@ -46,7 +46,9 @@ def _extract_keywords(text: str) -> list[str]:
 
 
 def _text_search_faqs(question: str, exclude_ids: set, top_n: int = 3):
-    """質問を語に分割してFAQ質問文・回答文をicontains検索し、マッチ数上位top_n件を返す"""
+    """質問を語分割してFAQ全件をicontains検索し、マッチ数上位top_n件を返す。
+    複数語が全てマッチするFAQ（AND）を単語マッチ（OR）より優先する。
+    """
     from django.db.models import Q
     from .models import FAQ
 
@@ -54,20 +56,32 @@ def _text_search_faqs(question: str, exclude_ids: set, top_n: int = 3):
     if not keywords:
         return []
 
-    # 各FAQに対してマッチした語数をカウント
+    # 各FAQに対してマッチした語数×語長をスコアとして加算
     faq_scores: dict[int, int] = {}
+    faq_hit_count: dict[int, int] = {}
     for kw in keywords:
         matched = FAQ.objects.filter(
             Q(question__icontains=kw) | Q(answer__icontains=kw)
         ).exclude(id__in=exclude_ids)
         for faq in matched:
-            faq_scores[faq.id] = faq_scores.get(faq.id, 0) + 1
+            faq_scores[faq.id] = faq_scores.get(faq.id, 0) + len(kw)
+            faq_hit_count[faq.id] = faq_hit_count.get(faq.id, 0) + 1
 
     if not faq_scores:
         return []
 
-    # マッチ数で降順ソートして上位top_n件を取得
-    top_ids = sorted(faq_scores, key=lambda x: faq_scores[x], reverse=True)[:top_n]
+    # AND マッチ（全語ヒット）を先頭グループ、OR のみを後続グループとして分離
+    n_keywords = len(keywords)
+    and_group = sorted(
+        [fid for fid, cnt in faq_hit_count.items() if cnt == n_keywords],
+        key=lambda x: faq_scores[x], reverse=True
+    )
+    or_group = sorted(
+        [fid for fid, cnt in faq_hit_count.items() if cnt < n_keywords],
+        key=lambda x: faq_scores[x], reverse=True
+    )
+
+    top_ids = (and_group + or_group)[:top_n]
     faqs_by_id = {f.id: f for f in FAQ.objects.filter(id__in=top_ids)}
     return [faqs_by_id[i] for i in top_ids if i in faqs_by_id]
 
