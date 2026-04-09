@@ -1,0 +1,74 @@
+[
+  {
+    "id": "tc001",
+    "question": "有給休暇の申請方法を教えてください",
+    "expected_keywords": [],
+    "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
+    "note": "FAQにあるはずの基本的な問い合わせ"
+  },
+  {
+    "id": "tc002",
+    "question": "テックブリッジの設立年はいつですか？",
+    "expected_keywords": [],
+    "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
+    "note": "会社基本情報"
+  },
+  {
+    "id": "tc003",
+    "question": "経費精算の締め日はいつですか？",
+    "expected_keywords": [],
+    "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
+    "note": "社内手続き系FAQ"
+  },
+  {
+    "id": "tc004",
+    "question": "リモートワークのルールを教えてください",
+    "expected_keywords": [],
+    "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
+    "note": "働き方・制度系FAQ"
+  },
+  {
+    "id": "tc005",
+    "question": "xyzxyzxyz意味不明な質問abcabc",
+    "expected_keywords": [],
+    "ng_patterns": [],
+    "expect_unknown": true,
+    "note": "FAQにないはずの質問 → 「わかりません」系の回答が正解"
+  },
+  {
+    "id": "tc006",
+    "question": "給与の支払日はいつですか？",
+    "expected_keywords": [],
+    "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
+    "note": "給与・待遇系FAQ"
+  },
+  {
+    "id": "tc007",
+    "question": "社内Slackのチャンネル一覧はどこで確認できますか？",
+    "expected_keywords": [],
+    "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
+    "note": "社内ツール系FAQ"
+  },
+  {
+    "id": "tc008",
+    "question": "入社手続きに必要な書類を教えてください",
+    "expected_keywords": [],
+    "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
+    "note": "人事・入社系FAQ"
+  },
+  {
+    "id": "tc009",
+    "question": "明日の天気は？",
+    "expected_keywords": [],
+    "ng_patterns": [],
+    "expect_unknown": true,
+    "note": "FAQ範囲外の質問 → 範囲外と伝える回答が正解"
+  },
+  {
+    "id": "tc010",
+    "question": "健康保険証はいつ届きますか？",
+    "expected_keywords": [],
+    "ng_patterns": ["わかりません", "情報がありません", "お答えできません"],
+    "note": "社会保険・入社手続き系FAQ"
+  }
+]

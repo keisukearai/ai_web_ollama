@@ -65,7 +65,7 @@ def _get_faq_context(question: str) -> str:
     header = AppConfig.objects.filter(key='faq_system_prompt_header').values_list('value', flat=True).first() or \
         'あなたは株式会社テックブリッジの社内アシスタントAIです。以下のFAQを参考に回答してください。\n\n'
     footer = AppConfig.objects.filter(key='faq_system_prompt_footer').values_list('value', flat=True).first() or \
-        '\n回答は簡潔かつ丁寧にしてください。'
+        '\n【回答ルール】\n- 上記FAQに記載のある情報のみを根拠に回答してください。\n- FAQに該当する情報がない場合は「該当する情報がありません」と明示し、推測や一般知識で補完しないでください。\n- URLや具体的な数値・固有名詞はFAQに明記されているもののみ使用してください。\n- 回答は簡潔かつ丁寧にしてください。'
 
     faq_text = '\n'.join(f'Q: {f.question}\nA: {f.answer}' for f in top_faqs)
     return header + faq_text + footer
