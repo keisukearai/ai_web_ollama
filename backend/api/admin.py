@@ -18,11 +18,13 @@ class AppConfigAdmin(admin.ModelAdmin):
 
 @admin.register(FAQ)
 class FAQAdmin(admin.ModelAdmin):
-    list_display = ['row_number', 'category', 'question', 'answer']
+    list_display = ['row_number', 'category', 'question', 'answer', 'search_keywords']
+    list_display_links = ['row_number', 'question']
     list_filter = ['category']
-    search_fields = ['question', 'answer']
+    search_fields = ['question', 'answer', 'search_keywords']
     ordering = ['row_number']
     list_per_page = 50
+    exclude = ['embedding']
 
 
 @admin.register(Conversation)
