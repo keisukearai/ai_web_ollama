@@ -20,15 +20,19 @@ import os
 import re
 import math
 
-# ── Django 環境セットアップ（DB直接参照用）──────────────────────────
-_BACKEND_DIR = os.path.join(os.path.dirname(__file__), 'backend')
-sys.path.insert(0, _BACKEND_DIR)
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-import django
-django.setup()
-
-from django.conf import settings as django_settings
-from api.models import FAQ
+# ── Django 環境セットアップ（DB直接参照用・任意）─────────────────────
+_DJANGO_AVAILABLE = False
+try:
+    _BACKEND_DIR = os.path.join(os.path.dirname(__file__), 'backend')
+    sys.path.insert(0, _BACKEND_DIR)
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+    import django
+    django.setup()
+    from django.conf import settings as django_settings
+    from api.models import FAQ
+    _DJANGO_AVAILABLE = True
+except Exception:
+    pass
 
 # ──────────────────────────────────────────────────────────────────────
 
@@ -72,8 +76,10 @@ def _cosine_similarity(a, b):
     return dot / (norm_a * norm_b) if norm_a and norm_b else 0.0
 
 
-def get_best_faq(question: str) -> tuple[FAQ | None, float]:
+def get_best_faq(question: str) -> tuple[object | None, float]:
     """質問に最もマッチするFAQエントリとスコアを返す。見つからなければ (None, 0.0)"""
+    if not _DJANGO_AVAILABLE:
+        return None, 0.0
     ollama_url = getattr(django_settings, 'OLLAMA_URL', 'http://localhost:11434')
     try:
         resp = requests.post(
@@ -186,7 +192,7 @@ def call_chat_api(question: str) -> tuple[str, float, str | None]:
     return full_response.strip(), round(duration, 2), error_msg
 
 
-def evaluate(tc: dict, response: str, error: str | None, db_faq: FAQ | None) -> dict:
+def evaluate(tc: dict, response: str, error: str | None, db_faq: object | None) -> dict:
     issues = []
     passed = True
 
