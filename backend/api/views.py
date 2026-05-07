@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Conversation, AppConfig
 from .serializers import ConversationSerializer
+from .mcp_client import call_get_company
 
 # psutil の cpu_percent は初回呼び出しが 0.0 を返すため、起動時に捨て呼び
 psutil.cpu_percent(interval=None)
@@ -426,3 +427,18 @@ class StatsView(APIView):
             'memory_used_gb': round(mem.used / 1024 ** 3, 1),
             'memory_total_gb': round(mem.total / 1024 ** 3, 1),
         })
+
+
+class CompanyView(APIView):
+    """
+    GET /api/company/?code=COMP001
+
+    MCPサーバーの get_company tool 経由で企業情報を返すエンドポイント。
+    MCPサーバーが停止中でも 200 を返し、found=false で通知する。
+    """
+    def get(self, request):
+        company_code = request.query_params.get('code', '').strip()
+        if not company_code:
+            return Response({'found': False, 'message': 'code パラメータが必要です'}, status=400)
+        result = call_get_company(company_code)
+        return Response(result)
